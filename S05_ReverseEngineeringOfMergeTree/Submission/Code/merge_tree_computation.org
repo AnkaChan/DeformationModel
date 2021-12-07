@@ -1,0 +1,413 @@
+#+TITLE: Merge Tree Computation
+* merge tree grapher
+#+BEGIN_SRC python :results none :session real-data
+import math
+import matplotlib.pyplot as plt
+import networkx as nx
+from networkx.drawing.nx_pydot import graphviz_layout
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from PIL import Image
+
+def makeTickArray(array, threshold):
+  tick_array = []
+  last = float('inf')
+  for v in array:
+    if (abs(v-last) > threshold):
+      tick_array.append(v)
+    last = v
+  return tick_array
+
+def makeGraph(nodes, edges, node_values, x_values):
+  G = nx.Graph()
+  for node in nodes:
+    G.add_node(node, pos=(x_values[node],node_values[node]))
+  for edge in edges:
+    G.add_edge(edge[0], edge[1])
+  return G
+
+def graphCompGraph(G, title="Complete Graph", labels=None):
+  fig, ax = plt.subplots()
+  canvas = FigureCanvas(fig)
+  plt.title(title)
+  node_labels=nx.get_node_attributes(G,'label')
+  if node_labels:
+    nx.draw(G, with_labels=False, ax=ax)
+    nx.draw_networkx_labels(G,node_labels,font_size=16)
+  elif labels:
+    nx.draw(G, with_labels=False, ax=ax)
+    nx.draw_networkx_labels(G,labels,font_size=16)
+  else:
+    nx.draw(G, with_labels=True, ax=ax)
+  canvas.draw()
+  return Image.frombytes('RGB', fig.canvas.get_width_height(),canvas.tostring_rgb())
+
+
+def graphMergeTree(G, title="Merge Tree", labels=None):
+  fig, ax = plt.subplots()
+  canvas = FigureCanvas(fig)
+  plt.title(title)
+
+  pos=nx.get_node_attributes(G,'pos')
+  node_labels=nx.get_node_attributes(G,'label')
+  node_values = [p[1] for p in pos.values()]
+  if node_labels:
+    nx.draw(G, pos, with_labels=False, ax=ax)
+    nx.draw_networkx_labels(G,pos,node_labels,font_size=16)
+  elif labels:
+    nx.draw(G, pos, with_labels=False, ax=ax)
+    nx.draw_networkx_labels(G,pos,labels,font_size=16)
+  else:
+    nx.draw(G, pos, with_labels=True, ax=ax)
+
+  ax.set_axis_on()
+  threshold = 0.01*(max(node_values)-min(node_values))
+  tick_array = makeTickArray(node_values, threshold)
+  ax.tick_params(left=True, labelleft=True)
+  plt.yticks(tick_array)
+  for val in tick_array:
+    plt.axhline(y=val, color='k', linestyle='-', linewidth=0.3)
+  canvas.draw()
+  return Image.frombytes('RGB', fig.canvas.get_width_height(),canvas.tostring_rgb())
+  # plt.show()
+
+def getConnectivityValue(G, n1, n2):
+  val = float('-inf')
+  for n in nx.shortest_path(G,n1,n2):
+    val = max(val,G.nodes[n]['pos'][1])
+  return val
+#+END_SRC
+
+* obj loader
+#+BEGIN_SRC python :results none :session real-data
+from pathlib import Path
+
+def getConnectivityFromObj(path):
+  vertices = []
+  edges = []
+  for line in open(path).readlines():
+    items = line.rstrip('\n').split(' ')
+    if items[0] == 'v':
+      vertices.append([float(items[1]), float(items[2]), float(items[3])])
+    elif items[0] == 'l':
+      edges.append([int(items[1])-1, int(items[2])-1])
+  return vertices, edges
+#+END_SRC
+
+* Load objs of 2 merge trees
+#+BEGIN_SRC python :results none :session real-data
+data_path = Path.home().joinpath('data')
+m1_path = str(data_path.joinpath('MergeTree1.obj'))
+m2_path = str(data_path.joinpath('MergeTree2.obj'))
+[m1_vertices, m1_edges] = getConnectivityFromObj(m1_path)
+[m2_vertices, m2_edges] = getConnectivityFromObj(m2_path)
+m1_vertices = [[v[0],v[1],-v[2]] for v in m1_vertices]
+m2_vertices = [[v[0],v[1],-v[2]] for v in m2_vertices]
+#+END_SRC
+
+* Graph merge tree 1
+#+BEGIN_SRC python :results none :session real-data
+import numpy as np
+
+m1_nodes = set([v for edge in m1_edges for v in edge])
+m1_node_values = np.array([])
+m1_x_values = np.array([])
+m1_og_labels = {0:"0", 1:"1", 2:"2", 3:"3"}
+m1_as_m2_labels = {0:"0", 1:"2,3,4", 2:"1", 3:"5"}
+
+for node in m1_nodes:
+  val = m1_vertices[node]
+  m1_node_values = np.append(m1_node_values, val[2])
+  m1_x_values = np.append(m1_x_values, val[0])
+
+G1 = makeGraph(m1_nodes, m1_edges, m1_node_values, m1_x_values)
+graphMergeTree(G1, 'Merge Tree 1', m1_og_labels).save(data_path.joinpath("m1_og.png"))
+graphMergeTree(G1, 'Merge Tree 1 in Relation to Merge Tree 2', m1_as_m2_labels).save(data_path.joinpath("m1_relation.png"))
+#+END_SRC
+
+[[~/data/m1_og.png]]
+[[~/data/m1_relation.png]]
+
+* Graph merge tree 2
+#+BEGIN_SRC python :results none :session real-data
+m2_nodes = set([v for edge in m2_edges for v in edge])
+m2_node_values = np.array([])
+m2_x_values = np.array([])
+m2_labels = {0:"0", 1:"1", 2:"2", 3:"3", 4:"4", 5:"5"}
+
+for node in m2_nodes:
+  val = m2_vertices[node]
+  m2_node_values = np.append(m2_node_values, val[2])
+  m2_x_values = np.append(m2_x_values, val[0])
+
+G2 = makeGraph(m2_nodes, m2_edges, m2_node_values, m2_x_values)
+graphMergeTree(G2, 'Merge Tree 2', m2_labels).save(data_path.joinpath("m2.png"))
+#+END_SRC
+
+[[~/data/m2.png]]
+
+* Make x values for relative merge tree
+#+BEGIN_SRC python :results none :session real-data
+m1_as_m2_x_values = np.empty(len(m2_x_values))
+for v in m1_as_m2_labels.items():
+  for node in v[1].split(","):
+    m1_as_m2_x_values[int(node)] = m1_x_values[v[0]]
+#+END_SRC
+
+* Convert merge tree to matrix
+#+BEGIN_SRC python :results output :session real-data
+import numpy as np
+np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+
+def buildConnectivityMatrix(G, labels, node_count):
+  mat = np.zeros((node_count,node_count))
+  node_lookup = np.zeros(node_count)
+
+  for node in G.nodes:
+    node_val = G.nodes[node]['pos'][1]
+    for label_node in [int(n) for n in labels[node].split(',')]:
+      mat[label_node][label_node] = node_val
+      node_lookup[label_node] = node
+
+  for i in range(node_count):
+    for j in range(i):
+      mat[i,j] = mat[j,i] = getConnectivityValue(G,node_lookup[i],node_lookup[j])
+  return mat
+
+induced_matrix1 = buildConnectivityMatrix(G1, m1_as_m2_labels, 6)
+induced_matrix2 = buildConnectivityMatrix(G2, m2_labels, 6)
+
+print("Induced Matrix 1 in Relation to Merge Tree 2:")
+print(induced_matrix1)
+print("Induced Matrix 2:")
+print(induced_matrix2)
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+Induced Matrix 1 in Relation to Merge Tree 2:
+[[-0.392 -0.392 -0.392 -0.392 -0.392 -0.000]
+ [-0.392 -2.387 -0.392 -0.392 -0.392 -0.000]
+ [-0.392 -0.392 -2.387 -2.387 -2.387 -0.000]
+ [-0.392 -0.392 -2.387 -2.387 -2.387 -0.000]
+ [-0.392 -0.392 -2.387 -2.387 -2.387 -0.000]
+ [-0.000 -0.000 -0.000 -0.000 -0.000 -0.000]]
+Induced Matrix 2:
+[[-0.442 -0.442 -0.442 -0.442 -0.442 -0.000]
+ [-0.442 -2.387 -0.442 -0.442 -0.442 -0.000]
+ [-0.442 -0.442 -1.156 -1.156 -1.156 -0.000]
+ [-0.442 -0.442 -1.156 -1.624 -1.156 -0.000]
+ [-0.442 -0.442 -1.156 -1.156 -1.621 -0.000]
+ [-0.000 -0.000 -0.000 -0.000 -0.000 -0.000]]
+#+end_example
+
+* Convert induced matrix to graph
+#+BEGIN_SRC python :results none :session real-data
+import math
+import copy
+import matplotlib.pyplot as plt
+import numpy as np
+from sortedcontainers import SortedSet
+from igraph import Graph, EdgeSeq, plot
+import networkx as nx
+import pydot
+from networkx.drawing.nx_pydot import graphviz_layout
+
+def getGraphsOfMatrix(mat, x_values=None):
+    dim = mat.shape[0]
+
+    for i in range(1,dim):
+        for j in range(i):
+            mat[i,j] = mat[j,i]
+
+    node_values = mat.diagonal().tolist()
+
+    steps = SortedSet()
+    node_val_set = SortedSet()
+    for i in range(dim):
+        for j in range(i+1):
+            steps.add(mat[i,j])
+        node_val_set.add(mat[i,i])
+
+    values_without_nodes = steps - node_val_set
+
+    def get_val_of_edge(edge):
+        return mat[edge[0],edge[1]]
+
+    comp_graph = nx.Graph()
+    merge_tree = nx.Graph()
+    complete_graphs = []
+    merge_tree_graphs = []
+
+    unique_nodes = []
+    coalesced_nodes = []
+    edges_to_connect = []
+    values_without_nodes_by_step = []
+    # Evaluate each step of the connected components
+    for step in steps:
+
+        # Add data from step into lists
+        nodes_in_step = []
+        edges_in_step = []
+        coalesced_edges_in_step = []
+        coalesced_nodes_in_step_dict = {}
+        for i in range(dim):
+            for j in range(i+1):
+                if (step == mat[i,j]):
+                    # The diagonal are all nodes
+                    if (i==j):
+                        nodes_in_step.append(i)
+                    # Above the diagonal are all connections
+                    else:
+                        # Coalesced nodes are ignored because they are redundant
+                        if (i not in coalesced_nodes and j not in coalesced_nodes):
+                            edges_in_step.append((i,j))
+                        else:
+                            coalesced_edges_in_step.append((i,j))
+
+        if (step in values_without_nodes):
+            values_without_nodes_by_step.append(step)
+
+        # Build complete graph
+        for node in nodes_in_step:
+            comp_graph.add_node(node)
+        for edge in edges_in_step:
+            comp_graph.add_edge(edge[0],edge[1])
+        for edge in coalesced_edges_in_step:
+            comp_graph.add_edge(edge[0],edge[1])
+        complete_graphs.append(copy.deepcopy(comp_graph))
+        # plt.title("Complete Graph of Step " + str(step))
+        # nx.draw(comp_graph, with_labels=True, arrows=False)
+        # plt.show()
+
+        for edge in edges_in_step:
+            # If nodes have an edge in the same step, they are coalesced
+            if ((edge[0] in nodes_in_step) and (edge[1] in nodes_in_step)):
+                coalesced_nodes.append(edge[0])
+                nodes_in_step.remove(edge[0])
+                if edge[1] in coalesced_nodes_in_step_dict:
+                    coalesced_nodes_in_step_dict[edge[1]].append(edge[0])
+                else:
+                    coalesced_nodes_in_step_dict[edge[1]] = [edge[0]]
+                # print("Nodes "+str(edge0)+" and "+str(edge1)+" are coalesced")
+
+        # Remove any edges that contain a coalesced node
+        temp_edges_in_step = copy.deepcopy(edges_in_step)
+        for edge in temp_edges_in_step:
+            if (edge[0] in coalesced_nodes):
+                edges_in_step.remove(edge)
+            elif (edge[1] in coalesced_nodes):
+                edges_in_step.remove(edge)
+
+        # Any nodes that aren't coalesced are added to the list of unique nodes
+        for node in nodes_in_step:
+            unique_nodes.append(node)
+
+        # Remove edges that are connected indirectly
+        temp_edges_in_step = copy.deepcopy(edges_in_step)
+        for edge1 in temp_edges_in_step:
+            for edge2 in temp_edges_in_step:
+                if (edge1 != edge2):
+                    node_set = SortedSet([edge1[0], edge1[1], edge2[0], edge2[1]])
+                    # If there are 3 unique nodes, than the edges might form a triangle
+                    if (len(node_set) == 3):
+                        node_value_set = SortedSet([(node_values[node_set[0]],node_set[0]),
+                                                    (node_values[node_set[1]],node_set[1]),
+                                                    (node_values[node_set[2]],node_set[2])])
+                        # If there are only 2 unique node values, then min and mid nodes were not     coalesced, therefore cannot contain an edge
+                        if (len(node_value_set) == 3):
+                            largest = max(node_value_set)
+                            smallest = min(node_value_set)
+                            mid = (node_value_set - SortedSet([largest, smallest]))[0]
+
+                            # Remove whichever edge connects to the node lower with the lowest value
+                            edge1_tallest = smallest[1] in edge1 and mat[edge1] > largest[0]
+                            edge2_tallest = smallest[1] in edge2 and mat[edge2] > largest[0]
+                            # Handles special case where the min and mid are connected by a value     without a node
+                            if (edge1_tallest or edge2_tallest):
+                                if ((smallest[1], mid[1]) in edges_in_step):
+                                    edges_in_step.remove((smallest[1], mid[1]))
+                                elif ((mid[1], smallest[1]) in edges_in_step):
+                                    edges_in_step.remove((mid[1], smallest[1]))
+                            # Handles normal cases
+                            elif ((smallest[1], mid[1]) in edges_to_connect or (mid[1],     smallest[1]) in edges_to_connect):
+                                if (smallest[1] in edge1 and edge1 in edges_in_step):
+                                    edges_in_step.remove(edge1)
+                                elif (smallest[1] in edge2 and edge2 in edges_in_step):
+                                    edges_in_step.remove(edge2)
+
+        # Any remaining edges meet the criteria, so they are added to the list of edges that should     appear in the graph
+        for new_edge in edges_in_step:
+            edges_to_connect.append(new_edge)
+
+        # Values without nodes are considered for the edges that need to be connected
+        # The node index for the drawing list is kept track
+        # Values without nodes are denoted with None type
+        edges_to_draw = []
+        edges_to_draw_node_index = []
+        for edge in edges_in_step:
+            fro = node_values[edge[1]]
+            to = node_values[edge[0]]
+            connection = get_val_of_edge(edge)
+            if (to == connection or fro == connection):
+                edges_to_draw.append((to, fro))
+                edges_to_draw_node_index.append(edge)
+            elif (connection in values_without_nodes):
+                edges_to_draw.append((to, connection))
+                edges_to_draw.append((connection, fro))
+                none_node_name = "None-"+str(connection)
+                edges_to_draw_node_index.append((edge[0], none_node_name))
+                edges_to_draw_node_index.append((none_node_name, edge[1]))
+
+        # Draw merge tree
+        for node in nodes_in_step:
+            label = str(node)
+            if node in coalesced_nodes_in_step_dict:
+                for coalesced_node in coalesced_nodes_in_step_dict[node]:
+                    label = label + "," + str(coalesced_node)
+            if type(x_values) == None:
+                merge_tree.add_node(node, pos=(np.random.rand(),node_values[node]),label=label)
+            else:
+                merge_tree.add_node(node, pos=(x_values[node],node_values[node]),label=label)
+        for value in values_without_nodes_by_step:
+            merge_tree.add_node("None-"+str(value), pos=(np.random.rand(),value))
+        for edge in edges_to_draw_node_index:
+            merge_tree.add_edge(edge[0], edge[1])
+        merge_tree_graphs.append(copy.deepcopy(merge_tree))
+    return complete_graphs, merge_tree_graphs, steps
+#+END_SRC
+
+* Get data of both merge trees
+#+BEGIN_SRC python :results none :session real-data
+[complete_graphs1, merge_tree_graphs1, steps1] = getGraphsOfMatrix(induced_matrix1, m1_as_m2_x_values)
+[complete_graphs2, merge_tree_graphs2, steps2] = getGraphsOfMatrix(induced_matrix2, m2_x_values)
+#+END_SRC
+
+* Make gif
+#+BEGIN_SRC python :results none :session real-data
+intervals = 50
+pause = 20
+merge_trees = []
+ims = []
+for i in range(intervals):
+    w = float(i/(intervals-1.0))
+    interp_mat = (1.0-w)*induced_matrix1 + w*induced_matrix2
+    interp_x_values = (1.0-w)*np.array(m1_as_m2_x_values) + w*np.array(m2_x_values)
+    [interp_complete_graphs, interp_merge_tree_graphs, steps2] = getGraphsOfMatrix(interp_mat, interp_x_values)
+    merge_trees.append(interp_merge_tree_graphs[-1])
+    ims.append(graphMergeTree(interp_merge_tree_graphs[-1], 'Merge Tree Linear Interpolation'))
+ims_rev = copy.deepcopy(ims)
+ims_rev.reverse()
+ims = ims+[ims_rev[0].copy() for i in range(pause)]+ims_rev+[ims[0].copy() for i in range(pause)]
+dur = [10 for i in range(len(ims))]
+dur[-1] = 100
+ims[0].save(data_path.joinpath('mergeTree.gif'), duration=dur, save_all=True, append_images=ims[1:],loop=0,optimize=False)
+#+END_SRC
+
+This is a gif. You will need to open this outside of the document.
+[[~/data/mergeTree.gif]]
+
+* Write data to network file
+#+BEGIN_SRC python :results none :session real-data
+for i in range(intervals):
+    nx.write_gpickle(merge_trees[i], data_path.joinpath("mergeTreeLinearInterp","step_"+str(i)+".gpickle"))
+#+END_SRC
