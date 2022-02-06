@@ -1,7 +1,7 @@
 # from S01_PrepareData import *
 import numpy as np
 import itertools
-import cv2, glob, tqdm, os
+import glob, tqdm, os
 from pathlib import Path
 from qpsolvers import solve_qp, available_solvers
 from scipy import sparse

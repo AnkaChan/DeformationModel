@@ -3,8 +3,6 @@ import numpy as np
 import itertools, glob, os, tqdm
 from pathlib import Path
 import pyvista as pv
-import cv2
-import pyvista as pv
 from os.path import join
 
 from qpsolvers import solve_qp, available_solvers

@@ -156,26 +156,26 @@ def genScalarField(S1, O2, O3, S2Height, outFile, dType = np.float64):
         A[iConstraint, int(contourLineConstraintIds[i][1])] = constraintWeights[i][1]
         equalityVal.append(constrainHeights[i])
 
-    # b = np.array(equalityVal).astype(dType)
-    #
-    # q = np.zeros((numberOfViables,)).astype(dType)
-    #
-    # # P = sparse.csc_matrix(P)
-    # G = sparse.csc_matrix(G)
-    # # q = sparse.csc_matrix(q)
-    # # h = sparse.csc_matrix(h)
-    # A = sparse.csc_matrix(A)
-    # # b = sparse.csc_matrix(b)
-    #
-    # Z = solve_qp(P, q, G, h, A, b, verbose=True, solver='osqp')
-    # # x = solve_qp(P, q, G, h, A, b, verbose=True, solver='ecos')
-    #
-    # Z=Z.reshape(gridSize)
-    # N = 200
-    # X = np.linspace(-2, 2, N)
-    # Y = np.linspace(-2, 2, N)
-    # X, Y = np.meshgrid(X, Y)
-    # writeOBj(outFile, 200, X, Y, Z)
+    b = np.array(equalityVal).astype(dType)
+
+    q = np.zeros((numberOfViables,)).astype(dType)
+
+    # P = sparse.csc_matrix(P)
+    G = sparse.csc_matrix(G)
+    # q = sparse.csc_matrix(q)
+    # h = sparse.csc_matrix(h)
+    A = sparse.csc_matrix(A)
+    # b = sparse.csc_matrix(b)
+
+    Z = solve_qp(P, q, G, h, A, b, verbose=True, solver='osqp')
+    # x = solve_qp(P, q, G, h, A, b, verbose=True, solver='ecos')
+
+    Z=Z.reshape(gridSize)
+    N = 200
+    X = np.linspace(-2, 2, N)
+    Y = np.linspace(-2, 2, N)
+    X, Y = np.meshgrid(X, Y)
+    writeOBj(outFile, 200, X, Y, Z)
 
 if __name__ == '__main__':
     # ts = [0.0]
