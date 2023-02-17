@@ -117,38 +117,50 @@ def makeMergeTree(S1, O2, O3, S2Height, gridSize):
 
     return equalityConstraints, equalityConstraintWeights, equalityConstraintVals, inequalityConstraints, inequalityConstraintWeights, inequalityConstraintVals
 
-def genScalarField(P, S1, O2, O3, S2Height, outFile, gridSize = (200, 200), dType = np.float64):
+def genScalarField(P, S1, O2, O3, S2Height, outFile, gridSize, dType = np.float64):
     '''
         O*: position of leaf nodes
         S*: position of saddle points
     '''
 
     equalityConstraints, equalityConstraintWeights, equalityConstraintVals, inequalityConstraints, inequalityConstraintWeights, inequalityConstraintVals = makeMergeTree(S1, O2, O3, S2Height, gridSize)
-
+    print(len(equalityConstraints))
+    print(len(equalityConstraints[500]))
+    print(len(equalityConstraints[500]))
+    print(len(equalityConstraintWeights))
+    print(len(equalityConstraintVals))
+    print(equalityConstraints[500])
+    print(equalityConstraintWeights[500])
+    print(equalityConstraintVals[500])
     Z = interpolateScalarField(gridSize, P, equalityConstraints, equalityConstraintWeights, equalityConstraintVals, inequalityConstraints, inequalityConstraintWeights, inequalityConstraintVals, fixBoundary=True)
 
     N = gridSize[1]
     X = np.linspace(-2, 2, N)
     Y = np.linspace(-2, 2, N)
     X, Y = np.meshgrid(X, Y)
-    writeOBj(outFile, 200, X, Y, Z)
+    # writeOBj(outFile, 200, X, Y, Z)
+    writeOBj(outFile, X, Y, Z, gridSize)
 
 
 if __name__ == '__main__':
-    timeSteps = np.linspace(0,1,50)
-    outFolder = join('Data', os.path.basename(__file__))
-    os.makedirs(outFolder, exist_ok=True)
+    # timeSteps = np.linspace(0,1,50)
+    # outFolder = join('Data', os.path.basename(__file__)) + '/'
+    # os.makedirs(outFolder, exist_ok=True)
+    #
+    # gridSize = (200, 200)
+    # P = genLaplacianMat(gridSize)
+    #
+    # for iStep, t in enumerate(timeSteps):
+    #     S1 = np.array([100, int(70 + t*20)])
+    #     O2 = np.array([100, int(110 + t*20)])
+    #     O3 = np.array([100, int(150 - t*20)])
+    #     S2Height = 1.5 + 0.5*t
+    #
+    #     outFile = join(outFolder, 'Animation_' + str(iStep).zfill(3) + '.obj')
+    #
+    #     genScalarField(P, S1, O2, O3, S2Height, outFile, gridSize=gridSize)
+    #     break
+    # print(outFolder)
+    # obj2vtkFolder(outFolder, outVtkFolder=outFolder)
 
-    gridSize = (200, 200)
-    P = genLaplacianMat(gridSize)
-
-    for iStep, t in enumerate(timeSteps):
-        S1 = np.array([100, int(70 + t*20)])
-        O2 = np.array([100, int(110 + t*20)])
-        O3 = np.array([100, int(150 - t*20)])
-        S2Height = 1.5 + 0.5*t
-
-        outFile = join(outFolder, 'Animation_' + str(iStep).zfill(3) + '.obj')
-
-        genScalarField(P, S1, O2, O3, S2Height, outFile, gridSize=gridSize)
-    obj2vtkFolder(outFolder)
+    print(gridCoordToPlaneCoord(1, 121, (200, 200)))
