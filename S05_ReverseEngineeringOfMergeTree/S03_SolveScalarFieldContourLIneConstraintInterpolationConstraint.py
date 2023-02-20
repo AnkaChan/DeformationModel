@@ -87,7 +87,7 @@ def contourLineConstraintOnInputCoords(coords, O, r, disThreshold=0.5):
 
     return pixelsOnCircle
 
-def contourLineInterpolationConstraints(O, r, gridSize = (200, 200)):
+def contourLineInterpolationConstraints(O, r, gridSize):
 
     constraintIds = []
     constraintWeights = []
@@ -136,9 +136,9 @@ def obj2vtkFolder(inObjFolder, inFileExt='obj', outVtkFolder=None, processInterv
     if outVtkFolder is None:
         outVtkFolder = inObjFolder + r'\vtk'
 
-    objFiles = glob.glob(inObjFolder + r'\*.' + inFileExt)
-
-
+    # objFiles = glob.glob(inObjFolder + r'\*.' + inFileExt)
+    objFiles = glob.glob(inObjFolder + r'/*.' + inFileExt)
+    print(inObjFolder)
     meshWithFaces = None
 
     os.makedirs(outVtkFolder, exist_ok=True)
@@ -153,12 +153,12 @@ def obj2vtkFolder(inObjFolder, inFileExt='obj', outVtkFolder=None, processInterv
         # else:
         #     mesh.faces = np.empty((0,), dtype=np.int32)
         if addABeforeName:
-            outName = outVtkFolder + r'\\A' + fp.stem + '.vtk'
+            # outName = outVtkFolder + r'\\A' + fp.stem + '.vtk'
+            outName = outVtkFolder + r'/A' + fp.stem + '.vtk'
         else:
-            outName = outVtkFolder + r'\\' + fp.stem + '.vtk'
+            outName = outVtkFolder + r'/' + fp.stem + '.vtk'
 
         mesh.point_arrays['Height'] = mesh.points[:, 2]
-
         mesh.save(outName)
 
 if __name__ == '__main__':

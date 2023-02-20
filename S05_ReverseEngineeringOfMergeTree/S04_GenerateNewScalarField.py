@@ -74,7 +74,9 @@ if __name__ == '__main__':
     Y = np.linspace(-1, 1, N)
     X, Y = np.meshgrid(X, Y)
 
-    np.random.seed(1231)
+    # np.random.seed(1231)
+    # np.random.seed(1234)
+    np.random.seed(1235)
 
     for iM in tqdm.tqdm(range(numMeshes)):
         # Mean vector and covariance matrix
@@ -92,7 +94,10 @@ if __name__ == '__main__':
 
             Z = np.maximum(Z, Z1 * gaussianMultiplier)
 
-        outFile = join(outFolder, 'M' + str(iM).zfill(5) + '.obj')
+        # outFile = join(outFolder, 'M' + str(iM).zfill(5) + '.obj')
+        outFile = join(outFolder, 'M' + "%05d" % np.random.randint(0,99999) + ".obj")
         writeOBj(outFile, N, X, Y, Z, withMtl=False)
 
-    obj2vtkFolder(outFolder, )
+    # print(outFolder + "/vtk/")
+
+    obj2vtkFolder(outFolder, outVtkFolder=outFolder + "/vtk/")

@@ -60,6 +60,10 @@ def interpolateScalarField(gridSize, P, equalityConstraintIds, equalityConstrain
 
     A = np.zeros((len(equalityConstraintIds), numberOfViables)).astype(dType)
     for i, constraintVId in enumerate(equalityConstraintIds):
+        # print(len(equalityConstraintWeights[i]))
+        # print(len(equalityConstraintIds[i]))
+        # print(equalityConstraintIds[i])
+        # print(equalityConstraintWeights[i])
         assert len(equalityConstraintWeights[i]) == len(equalityConstraintIds[i])
         for iPixel in range(len(constraintVId)):
             A[i, int(constraintVId[iPixel])] = equalityConstraintWeights[i][iPixel]

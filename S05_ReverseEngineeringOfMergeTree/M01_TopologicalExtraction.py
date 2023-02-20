@@ -10,18 +10,34 @@ import vtk
 from qpsolvers import solve_qp, available_solvers
 from scipy import sparse
 print('Avaliable qp solvers: ', available_solvers)
-def writeOBj(outObj, N, X, Y, Z):
+# def writeOBj(outObj, N, X, Y, Z):
+#     '''
+#     Write a scalar field to a grid mesh
+#     '''
+#     file  = open(outObj, 'w')
+#     for i, j in itertools.product(range(N), range(N)):
+#         file.write('v %f %f %f\n' %( X[i, j],  Y[i,j], Z[i,j] ))
+#
+#     for i, j in itertools.product(range(0, N-1), range(1, N)):
+#         vId = j + i *N
+#         file.write('f %d %d %d\n' %(vId, vId+1,  vId+N+1, ))
+#         file.write('f %d %d %d\n' %(vId, vId+N+1,  vId+N, ))
+
+def writeOBj(outObj, X, Y, Z, gridSize):
     '''
     Write a scalar field to a grid mesh
     '''
+    Nx = gridSize[0]
+    Ny = gridSize[1]
     file  = open(outObj, 'w')
-    for i, j in itertools.product(range(N), range(N)):
-        file.write('v %f %f %f\n' %( X[i, j],  Y[i,j], Z[i,j] ))
+    for i, j in itertools.product(range(Nx), range(Ny)):
+        file.write('v %f %f %f\n' %( X[i,j],  Y[i,j], Z[i,j] ))
 
-    for i, j in itertools.product(range(0, N-1), range(1, N)):
-        vId = j + i *N
-        file.write('f %d %d %d\n' %(vId, vId+1,  vId+N+1, ))
-        file.write('f %d %d %d\n' %(vId, vId+N+1,  vId+N, ))
+    # add the faces to the obj file
+    for i, j in itertools.product(range(0, Nx-1), range(1, Ny)):
+        vId = j + i * Ny
+        file.write('f %d %d %d\n' %(vId, vId+1,  vId+Ny+1, ))
+        file.write('f %d %d %d\n' %(vId, vId+Ny+1,  vId+Ny, ))
 
 def flatten2DIndex(i,j, gridSize, major='row'):
     '''
@@ -139,27 +155,35 @@ def findContourLineConstraints(fieldSeg, gridSize, contourLineHeight, edges=None
     contourLineConstraintHeight = []
     for i, edge in tqdm.tqdm(enumerate(edges)):
         if fieldSeg["SegmentationId"][edge[0]] != fieldSeg["SegmentationId"][edge[1]]:
-
             contourEdges.append(edge)
             h1 = fieldSeg["Height"][edge[0]]
             h2 = fieldSeg["Height"][edge[1]]
             if h1 > h2:
                 if contourLineHeight.get(
                         (fieldSeg["SegmentationId"][edge[0]], fieldSeg["SegmentationId"][edge[1]])) is None:
+                    contourEdges.pop()
                     continue
                 contourHeight = contourLineHeight[fieldSeg["SegmentationId"][edge[0]], fieldSeg["SegmentationId"][edge[1]]]
             else:
                 if contourLineHeight.get(
                         (fieldSeg["SegmentationId"][edge[1]], fieldSeg["SegmentationId"][edge[0]])) is None:
+                    contourEdges.pop()
                     continue
                 contourHeight = contourLineHeight[
                     fieldSeg["SegmentationId"][edge[1]], fieldSeg["SegmentationId"][edge[0]]]
 
-            w1 = (contourHeight - h2) / (h1 - h2)
+            # check if h1 == h2
+            if h1 == h2:
+                w1 = 0.5
+            else:
+                w1 = (contourHeight - h2) / (h1 - h2)
+
             assert 0 <= w1 <=1
             w2 = 1 - w1
             contourLineConstraintWeight.append([w1, w2])
             contourLineConstraintHeight.append(contourHeight)
+        if len(contourEdges) != len(contourLineConstraintWeight):
+            break
 
     return contourEdges, contourLineConstraintWeight, contourLineConstraintHeight
 
@@ -192,7 +216,7 @@ def contourLineConstraintOnInputCoords(coords, O, r, disThreshold=0.5):
 
     return pixelsOnCircle
 
-def contourLineInterpolationConstraints(O, r, gridSize = (200, 200)):
+def contourLineInterpolationConstraints(O, r, gridSize):
 
     constraintIds = []
     constraintWeights = []
@@ -241,8 +265,9 @@ def obj2vtkFolder(inObjFolder, inFileExt='obj', outVtkFolder=None, processInterv
     if outVtkFolder is None:
         outVtkFolder = inObjFolder + r'\vtk'
 
-    objFiles = glob.glob(inObjFolder + r'\*.' + inFileExt)
-
+    objFiles = glob.glob(inObjFolder + r'/*.' + inFileExt)
+    print(inObjFolder)
+    print(outVtkFolder)
 
     meshWithFaces = None
 
@@ -315,6 +340,19 @@ def check2DCoordValidility(i, j, gridSize):
 
     return i >= 0 and i < gridSize[0] and j >= 0 and j < gridSize[1]
 
+
+def generate_directions(n):
+    """
+    Generate an [-n,n] x [-n,n] patch of directions to find the segmentations in the neighborhood of a saddle point.
+    output: [(-1, -1), (0, -1), ...] (without (0,0))
+    If there is an assertion error from the findContourLineHeight() function, try a larger patch.
+    """
+    x_direction, y_direction = np.arange(-n, n+1, dtype=int), np.arange(-n, n+1, dtype=int)
+    directions = list(itertools.product(x_direction, y_direction))
+    directions.remove((0, 0))
+    return directions
+
+
 def findContourLineHeight(nodes, fieldSeg, gridSize, directions):
     contourLineHeight = {} # key (a, b): a: higher segment, c lower segment
     iMeshVerts = matchTreeToGrid(nodes.points, fieldSeg.points)
@@ -333,19 +371,70 @@ def findContourLineHeight(nodes, fieldSeg, gridSize, directions):
         iMeshVert = iMeshVerts[iNode]
         i, j = to2DIndex(iMeshVert, gridSize)
 
-        segsInNeighborhood = []
-        heights = []
+        # segsInNeighborhood = []
+        segsInNeighborhood_dict = {}
+        heights_dict = {}
 
         for d in directions:
             if check2DCoordValidility(i+d[0], j+d[1], gridSize, ):
                 neiVertId = flatten2DIndex(i+d[0], j+d[1], gridSize)
-                if fieldSeg['SegmentationId'][neiVertId] not in segsInNeighborhood:
-                    segsInNeighborhood.append(fieldSeg['SegmentationId'][neiVertId])
-                    heights.append(fieldSeg['Height'][neiVertId])
-
+                if fieldSeg['SegmentationId'][neiVertId] not in segsInNeighborhood_dict.keys():
+                    # segsInNeighborhood.append(fieldSeg['SegmentationId'][neiVertId])
+                    segsInNeighborhood_dict[fieldSeg['SegmentationId'][neiVertId]] = 1
+                    heights_dict[fieldSeg['SegmentationId'][neiVertId]] = fieldSeg['Height'][neiVertId]
+                    # heights.append(fieldSeg['Height'][neiVertId])
+                else:
+                    segsInNeighborhood_dict[fieldSeg['SegmentationId'][neiVertId]] += 1
+        # print(segsInNeighborhood_dict)
+        segsInNeighborhood_dict = dict(sorted(segsInNeighborhood_dict.items(), key=lambda item: item[1]))
+        # print(segsInNeighborhood_dict)
+        # print(heights_dict)
+        segsInNeighborhood = list(segsInNeighborhood_dict.keys())
+        if len(segsInNeighborhood) > 3:
+            assert segsInNeighborhood_dict[segsInNeighborhood[0]] < segsInNeighborhood_dict[segsInNeighborhood[1]]
+        segsInNeighborhood = segsInNeighborhood[-3:]
+        heights = [heights_dict[key] for key, _ in segsInNeighborhood_dict.items()]
+        heights = heights[-3:]
+        # print(heights)
+        # print(segsInNeighborhood)
+        # print(iNode)
         assert len(segsInNeighborhood) == 3
         sortedId = np.argsort(heights)
         contourLineHeight[(segsInNeighborhood[sortedId[2]], segsInNeighborhood[sortedId[0]])] = nodes['Scalar'][iNode]
         contourLineHeight[(segsInNeighborhood[sortedId[1]], segsInNeighborhood[sortedId[0]])] = nodes['Scalar'][iNode]
 
+        # print(contourLineHeight)
+
     return contourLineHeight
+
+
+if __name__ == '__main__':
+    inputScalarField = './Data/S04_GenerateNewScalarField.py/M13338.obj'
+    inputSegmentedField = './Data/S04_GenerateNewScalarField.py/Topology/M13338/Seg.vtk'
+    inputMergeTreeNodesField = './Data/S04_GenerateNewScalarField.py/Topology/M13338/Node.vtk'
+    inputEdges = './Data/S04_GenerateNewScalarField.py/Topology/M13338/Edges.vtk'
+    gridSize = (200, 200)
+    dType = np.float64
+    directions = [
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+    ]
+
+    numberOfVariable = gridSize[0] * gridSize[1]
+
+    fieldSeg = pv.read(inputSegmentedField)
+    fieldSeg.points[:, 2] = fieldSeg['Height']
+    field = pv.PolyData(inputScalarField)
+
+    nodes = pv.read(inputMergeTreeNodesField)
+    edges = pv.read(inputEdges)
+
+    contourLineHeight = findContourLineHeight(nodes, edges, fieldSeg, gridSize, directions)
+    print(contourLineHeight)
+
