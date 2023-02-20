@@ -241,7 +241,9 @@ if __name__ == '__main__':
             initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, gridSize,
                                                                        contourEdges, edgesToRemove)
 
-            plotEdges(newEdges)
+            # plot edges up to a certain step number
+            # use this to check that the edges are in the correct order and not randomly jumping around
+            plotEdges(newEdges, 50)
     # currentEdge = [flatten2DIndex(20, 10, gridSize), flatten2DIndex(20, 11, gridSize)]
     # previousEdge = [flatten2DIndex(18, 11, gridSize), flatten2DIndex(20000, 10000, gridSize)]
     # print(isEdge(currentEdge, gridSize))
