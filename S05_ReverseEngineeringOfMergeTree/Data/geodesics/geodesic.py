@@ -18,6 +18,9 @@ from paraview.simple import *
 plane1 = Plane(registrationName='Plane1')
 plane1.XResolution = 256
 plane1.YResolution = 255
+plane1.Origin = [-0.7, -0.7, 0.0]
+plane1.Point1 = [0.7, -0.7, 0.0]
+plane1.Point2 = [-0.7, 0.7, 0.0]
 
 # create a new 'Python Calculator'
 pythonCalculator1 = PythonCalculator(registrationName='PythonCalculator1', Input=plane1)
@@ -50,7 +53,7 @@ tetrahedralize1 = Tetrahedralize(registrationName='Tetrahedralize1', Input=pytho
 # ------------------------------------------------------------------------------
 # 2) Computing the merge trees
 # ------------------------------------------------------------------------------
-output_dir = "./geodesics/JulienExample/"
+output_dir = "./Data/geodesics/JulienExample/"
 
 # create a new 'TTK Merge and Contour Tree (FTM)'
 tTKMergeandContourTreeFTM1 = TTKMergeandContourTreeFTM(registrationName='TTKMergeandContourTreeFTM1', Input=tetrahedralize1)
