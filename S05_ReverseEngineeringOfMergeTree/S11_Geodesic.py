@@ -21,6 +21,9 @@ if __name__ == '__main__':
     # inputScalarField = './Data/S11_Geodesic.py/original/MultiGaussian1/MultiGaussian1.obj'
     # inputSegmentedField = './Data/S11_Geodesic.py/original/MultiGaussian1/Seg1.vtk'
     # inputMergeTreeNodesField = './Data/S11_Geodesic.py/original/MultiGaussian1/Node1.vtk'
+
+
+
     gridSize = (256, 257) #(Y, X) resolution in paraview (rows + 1, cols + 1)
     dType = np.float64
     P = sparse.csc_matrix(genLaplacianMat(gridSize))

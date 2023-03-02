@@ -54,12 +54,31 @@ class CountourLine:
         s.upSegment = None
         s.downSegment = None
 
+class CountourConstraint:
+    def __init__(s):
+        s.saddleAllContourEdges = []
+        s.saddleAllContourWeights = []
+        s.saddleAllContourHeights = []
+
 class Tree:
     def __init__(s, nodesData=None, edgesData=None, segmentationData=None, gridSize=None, splitTree=False, segmentationDataScalarName="Height"):
         s.nodes = []
         s.edges = []
 
         s.isSplitTree = splitTree
+
+        if splitTree:
+            actualUp = "down"
+            actualDown = "up"
+            if nodesData is not None:
+                nodesData['Scalar'] = - nodesData['Scalar']
+            if segmentationData is not None:
+                segmentationData[segmentationDataScalarName] = -segmentationData[segmentationDataScalarName]
+        else:
+            actualUp = "up"
+            actualDown = "down"
+
+
 
         s.nodeToField = []
         s.contourLineHeight = {}  # key (a, b): a: higher segment, b lower segment
@@ -69,6 +88,8 @@ class Tree:
         s.segmentationData = segmentationData
         s.segmentationDataScalarName = segmentationDataScalarName
         s.saddleContours = {}
+
+        s.saddleTypeId = 2
 
         # convert split tree to merge tree
         # if splitTree:
@@ -91,13 +112,6 @@ class Tree:
                 newNode.scalar = nodesData['Scalar'][iNode]
                 newNode.position = nodesData.points[iNode]
                 s.nodes.append(newNode)
-
-            if splitTree:
-                actualUp = "down"
-                actualDown = "up"
-            else:
-                actualUp = "up"
-                actualDown = "down"
 
             for iEdge in range(edgesData["upNodeId"].shape[0]):
                 newEdge = Edge()
@@ -152,13 +166,12 @@ class Tree:
 
         for iNode in range(s.nodesData.points.shape[0]):
             # non-saddle node
-            if s.nodesData['CriticalType'][iNode] != 2:
+            if s.nodesData['CriticalType'][iNode] != s.saddleTypeId:
                 continue
             # saddle node
             # iterate all edges to find two nodes above the node
             upSegs = []
             downsegs = []
-
 
             for iEdge in range(len(s.edges)):
                 if s.edges[iEdge].downNode == iNode:
@@ -205,18 +218,18 @@ class Tree:
                 h1 = s.segmentationData[s.segmentationDataScalarName][edge[0]]
                 h2 = s.segmentationData[s.segmentationDataScalarName][edge[1]]
                 if h1 > h2:
-                    if s.contourLineHeight.get(
-                            (s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][edge[1]])) is None:
+                    contourNeiSegs = (s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][edge[1]])
+                    if s.contourLineHeight.get(contourNeiSegs) is None:
                         s.contourIntersectingEdges.pop()
-                        print("Warining! No contour line height defined between: ", (s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][edge[1]]))
+                        print("Warining! No contour line height defined between: ", contourNeiSegs)
                         continue
                     contourHeight = s.contourLineHeight[s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][edge[1]]]
                     contoutUpDownSegments = (s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][edge[1]])
                 else:
-                    if s.contourLineHeight.get(
-                            (s.segmentationData["SegmentationId"][edge[1]], s.segmentationData["SegmentationId"][edge[0]])) is None:
+                    contourNeiSegs = (s.segmentationData["SegmentationId"][edge[1]], s.segmentationData["SegmentationId"][edge[0]])
+                    if s.contourLineHeight.get(contourNeiSegs) is None:
                         s.contourIntersectingEdges.pop()
-                        print("Warining! No contour line height defined between: ", (s.segmentationData["SegmentationId"][edge[1]], s.segmentationData["SegmentationId"][edge[0]]))
+                        print("Warining! No contour line height defined between: ", contourNeiSegs)
 
                         continue
                     contourHeight = s.contourLineHeight[
@@ -231,6 +244,7 @@ class Tree:
 
                 assert 0 <= w1 <=1
                 w2 = 1 - w1
+
                 s.contourLineConstraintWeight.append((w1, w2))
                 s.contourLineConstraintHeight.append(contourHeight)
                 s.contourLineConstraintUpDownSegments.append(contoutUpDownSegments)
@@ -241,7 +255,7 @@ class Tree:
     def reOrderContourline(s):
         for iNode in range(len(s.nodes)):
             # skip the nodes that are not saddle points
-            if s.nodes[iNode].criticalType != 2:
+            if s.nodes[iNode].criticalType != s.saddleTypeId:
                 continue
             print("Saddle point id: ", iNode)
 
@@ -250,10 +264,8 @@ class Tree:
             saddleNeighborEdges = findSaddleNeighborhood(iMeshVert, s.gridSize)
             initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, s.gridSize,
                                                                        s.contourIntersectingEdges)
+            newCountour = CountourConstraint()
 
-            saddleAllContourEdges = []
-            saddleAllContourWeights = []
-            saddleAllContourHeights = []
 
             while initCEdge is not None:
                 edgesToRemove.append(initCEdge)
@@ -265,11 +277,11 @@ class Tree:
                 initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, s.gridSize,
                                                                            s.contourIntersectingEdges, edgesToRemove)
 
-                saddleAllContourEdges.append(newEdges)
-                saddleAllContourWeights.append(newWeights)
-                saddleAllContourHeights.append(newHeights)
-            print("Num countour lines for saddle ", iNode, ":", len(saddleAllContourHeights))
-            plotSaddleCountourLine(saddleAllContourEdges, saddleAllContourWeights, s.gridSize)
+                newCountour.saddleAllContourEdges.append(newEdges)
+                newCountour.saddleAllContourWeights.append(newWeights)
+                newCountour.saddleAllContourHeights.append(newHeights)
+            print("Num countour lines for saddle ", iNode, ":", len(newCountour.saddleAllContourHeights))
+            plotSaddleCountourLine(newCountour.saddleAllContourEdges, newCountour.saddleAllContourWeights, s.gridSize)
             plt.waitforbuttonpress()
 
 
