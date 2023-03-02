@@ -33,6 +33,9 @@ if __name__ == '__main__':
         if nodes['CriticalType'][iNode] != 2:
             continue
 
+
+            
+
         iMeshVert = iMeshVerts[iNode]
         edgesToRemove = []
         saddleNeighborEdges = findSaddleNeighborhood(iMeshVert, gridSize)
@@ -59,7 +62,7 @@ if __name__ == '__main__':
 
         print("Num countour lines for saddle ", iNode, ":", len(saddleAllContourHeights))
         plotSaddleCountourLine(saddleAllContourEdges, saddleAllContourWeights, gridSize)
-        plt.show()
+        # plt.show()
         plt.waitforbuttonpress()
 
     # currentEdge = [flatten2DIndex(20, 10, gridSize), flatten2DIndex(20, 11, gridSize)]
