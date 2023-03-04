@@ -9,10 +9,15 @@ paraview.compatibility.major = 5
 paraview.compatibility.minor = 10
 
 from paraview.simple import *
+import sys
 
 # ------------------------------------------------------------------------------
 # 1) Creating two Gaussian mixtures, multiGaussian0 and multiGaussian1
 # ------------------------------------------------------------------------------
+
+t = float(sys.argv[1])
+print(t)
+output_dir = "./Data/geodesics/JulienExample/"
 
 # create a new 'Plane'
 plane1 = Plane(registrationName='Plane1')
@@ -53,7 +58,6 @@ tetrahedralize1 = Tetrahedralize(registrationName='Tetrahedralize1', Input=pytho
 # ------------------------------------------------------------------------------
 # 2) Computing the merge trees
 # ------------------------------------------------------------------------------
-output_dir = "./Data/geodesics/JulienExample/"
 
 # create a new 'TTK Merge and Contour Tree (FTM)'
 tTKMergeandContourTreeFTM1 = TTKMergeandContourTreeFTM(registrationName='TTKMergeandContourTreeFTM1', Input=tetrahedralize1)
@@ -118,50 +122,37 @@ groupDatasets3.BlockNames = ['GroupDatasets1', 'GroupDatasets2']
 # ------------------------------------------------------------------------------
 
 # create a new 'TTK MergeTreeClustering'
-# tTKMergeTreeClustering1 = TTKMergeTreeClustering(registrationName='TTKMergeTreeClustering1', Input=groupDatasets3,
-#     OptionalInputclustering=None)
-# tTKMergeTreeClustering1.ComputeBarycenter = 1
-# # change this parameter to change the position of the interpolated tree
-# # change to 1 to retrieve the final position of all nodes (including destroyed
-# # nodes)
-# tTKMergeTreeClustering1.Alpha = 0.44
-# tTKMergeTreeClustering1.DimensionToshift = 'Z'
-# tTKMergeTreeClustering1.Barycenterpositionaccordingtoalpha = 1
-# tTKMergeTreeClustering1.ImportantPairs = 0.0
-# tTKMergeTreeClustering1.ImportantPairsSpacing = 0.25
+tTKMergeTreeClustering1 = TTKMergeTreeClustering(registrationName='TTKMergeTreeClustering1', Input=groupDatasets3,
+    OptionalInputclustering=None)
+tTKMergeTreeClustering1.ComputeBarycenter = 1
+# change this parameter to change the position of the interpolated tree
+# change to 1 to retrieve the final position of all nodes (including destroyed
+# nodes)
+tTKMergeTreeClustering1.Alpha = t
+tTKMergeTreeClustering1.DimensionToshift = 'Z'
+tTKMergeTreeClustering1.Barycenterpositionaccordingtoalpha = 1
+tTKMergeTreeClustering1.ImportantPairs = 0.0
+tTKMergeTreeClustering1.ImportantPairsSpacing = 0.25
 
-a = list(range(1, 100))
-t_list = [i/100 for i in a]
+# ------------------------------------------------------------------------------
+# 5) Isolating the different outputs
+# ------------------------------------------------------------------------------
 
-for t in t_list:
-    tTKMergeTreeClustering1 = TTKMergeTreeClustering(registrationName='TTKMergeTreeClustering1', Input=groupDatasets3,
-                                                     OptionalInputclustering=None)
-    tTKMergeTreeClustering1.ComputeBarycenter = 1
-    tTKMergeTreeClustering1.Alpha = t
-    tTKMergeTreeClustering1.DimensionToshift = 'Z'
-    tTKMergeTreeClustering1.Barycenterpositionaccordingtoalpha = 1
-    tTKMergeTreeClustering1.ImportantPairs = 0.0
-    tTKMergeTreeClustering1.ImportantPairsSpacing = 0.25
+# find source
+tTKMergeTreeClustering1_2 = FindSource('TTKMergeTreeClustering1')
 
-    # ------------------------------------------------------------------------------
-    # 5) Isolating the different outputs
-    # ------------------------------------------------------------------------------
+# create a new 'Extract Block'
+extractBlock4 = ExtractBlock(registrationName='ExtractBlock4', Input=OutputPort(tTKMergeTreeClustering1_2,2))
+extractBlock4.Selectors = ['/Root/Block1']
 
-    # find source
-    tTKMergeTreeClustering1_2 = FindSource('TTKMergeTreeClustering1')
+# create a new 'Extract Block'
+extractBlock3 = ExtractBlock(registrationName='ExtractBlock3', Input=OutputPort(tTKMergeTreeClustering1_2,2))
+extractBlock3.Selectors = ['/Root/Block0']
 
-    # create a new 'Extract Block'
-    extractBlock4 = ExtractBlock(registrationName='ExtractBlock4', Input=OutputPort(tTKMergeTreeClustering1_2,2))
-    extractBlock4.Selectors = ['/Root/Block1']
+SaveData(output_dir + "animation/tree1ToInterpolated_" + str(int(t*100)) + ".csv", extractBlock3)
+SaveData(output_dir + "animation/interpolatedTotree2_" + str(int(t*100)) + ".csv", extractBlock4)
 
-    # create a new 'Extract Block'
-    extractBlock3 = ExtractBlock(registrationName='ExtractBlock3', Input=OutputPort(tTKMergeTreeClustering1_2,2))
-    extractBlock3.Selectors = ['/Root/Block0']
-
-    SaveData(output_dir + "animation/tree1ToInterpolated_" + str(int(t*100)) + ".csv", extractBlock3)
-    SaveData(output_dir + "animation/interpolatedTotree2_" + str(int(t*100)) + ".csv", extractBlock4)
-
-# # create a new 'Extract Block'
+# create a new 'Extract Block'
 # extractBlock2 = ExtractBlock(registrationName='ExtractBlock2', Input=OutputPort(tTKMergeTreeClustering1_2, 0))
 # extractBlock2.Selectors = ['/Root/Block0/Block0']
 #
@@ -169,9 +160,18 @@ for t in t_list:
 # extractBlock1 = ExtractBlock(registrationName='ExtractBlock1', Input=OutputPort(tTKMergeTreeClustering1_2, 0))
 # extractBlock1.Selectors = ['/Root/Block1/Block0']
 
+# tTKMergeTreeClustering1_2 = FindSource('TTKMergeTreeClustering1')
 
-# SaveData("tree1ToInterpolated.csv", extractBlock3)
-# SaveData("interpolatedTotree2.csv", extractBlock4)
+# create a new 'Extract Block'
+# extractBlock4 = ExtractBlock(registrationName='ExtractBlock4', Input=OutputPort(tTKMergeTreeClustering1_2,2))
+# extractBlock4.Selectors = ['/Root/Block1']
+
+# create a new 'Extract Block'
+# extractBlock3 = ExtractBlock(registrationName='ExtractBlock3', Input=OutputPort(tTKMergeTreeClustering1_2,2))
+# extractBlock3.Selectors = ['/Root/Block0']
+
+# SaveData("tree1ToInterpolated_70.csv", extractBlock3)
+# SaveData("interpolatedTotree2_70.csv", extractBlock4)
 #
 # SaveData("nodesTree1.csv", extractBlock2, FieldAssociation='Point Data')
 # SaveData("nodesTree2.csv", extractBlock1, FieldAssociation='Point Data')
