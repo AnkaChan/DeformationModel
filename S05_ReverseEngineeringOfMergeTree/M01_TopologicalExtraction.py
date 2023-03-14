@@ -252,7 +252,7 @@ class Tree:
             if len(s.contourIntersectingEdges) != len(s.contourLineConstraintWeight):
                 break
 
-    def reOrderContourline(s):
+    def reOrderContourline(s, draw=False):
         for iNode in range(len(s.nodes)):
             # skip the nodes that are not saddle points
             if s.nodes[iNode].criticalType != s.saddleTypeId:
@@ -281,8 +281,9 @@ class Tree:
                 newCountour.saddleAllContourWeights.append(newWeights)
                 newCountour.saddleAllContourHeights.append(newHeights)
             print("Num countour lines for saddle ", iNode, ":", len(newCountour.saddleAllContourHeights))
-            plotSaddleCountourLine(newCountour.saddleAllContourEdges, newCountour.saddleAllContourWeights, s.gridSize)
-            plt.waitforbuttonpress()
+            if draw:
+                plotSaddleCountourLine(newCountour.saddleAllContourEdges, newCountour.saddleAllContourWeights, s.gridSize)
+                plt.waitforbuttonpress()
 
 
 

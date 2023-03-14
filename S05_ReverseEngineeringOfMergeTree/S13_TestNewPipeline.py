@@ -15,6 +15,9 @@ if __name__ == '__main__':
     inputMergeTreeNodes = './Data/geodesics/JulienExample/tree1nodes.vtk'
     inputMergeTreeEdges = './Data/geodesics/JulienExample/tree1edges.vtk'
 
+    inputSegmentedField2 = './Data/geodesics/JulienExample/tree2segs.vtk'
+    inputMergeTreeNodes2 = './Data/geodesics/JulienExample/tree2nodes.vtk'
+    inputMergeTreeEdges2 = './Data/geodesics/JulienExample/tree2edges.vtk'
 
     # the 257 in main
     gridSize = (256, 257) #(Y, X) resolution in paraview (rows + 1, cols + 1)
@@ -24,8 +27,14 @@ if __name__ == '__main__':
     tree.saddleTypeId = 1
 
     tree.extractContourLineConstraints()
+    tree.reOrderContourline(True)
 
-    tree.reOrderContourline()
+    tree2 = Tree()
+    tree2.load(inputMergeTreeNodes2, inputMergeTreeEdges2, inputSegmentedField2, gridSize=gridSize, splitTree=True, segmentationDataScalarName="multiGaussian1")
+    tree2.saddleTypeId = 1
+
+    tree2.extractContourLineConstraints()
+    tree2.reOrderContourline(True)
 
     # for iSaddle in range()
     # print("Num countour lines for saddle ", iNode, ":", len(saddleAllContourHeights))
