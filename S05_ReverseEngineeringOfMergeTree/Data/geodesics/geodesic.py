@@ -149,8 +149,8 @@ extractBlock4.Selectors = ['/Root/Block1']
 extractBlock3 = ExtractBlock(registrationName='ExtractBlock3', Input=OutputPort(tTKMergeTreeClustering1_2,2))
 extractBlock3.Selectors = ['/Root/Block0']
 
-SaveData(output_dir + "animation/tree1ToInterpolated_" + str(int(t*100)) + ".csv", extractBlock3)
-SaveData(output_dir + "animation/interpolatedTotree2_" + str(int(t*100)) + ".csv", extractBlock4)
+SaveData(output_dir + "pointData/tree1ToInterpolated_" + str(int(t*100)) + ".csv", extractBlock3, FieldAssociation='Point Data')
+SaveData(output_dir + "pointData/interpolatedTotree2_" + str(int(t*100)) + ".csv", extractBlock4, FieldAssociation='Point Data')
 
 # create a new 'Extract Block'
 # extractBlock2 = ExtractBlock(registrationName='ExtractBlock2', Input=OutputPort(tTKMergeTreeClustering1_2, 0))
