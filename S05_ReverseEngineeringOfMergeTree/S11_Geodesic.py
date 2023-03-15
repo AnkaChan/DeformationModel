@@ -1,5 +1,5 @@
 from M02_ScalarFieldInterpolation import *
-import preprocessing
+import M03_Preprocessing
 
 if __name__ == '__main__':
     # obj2vtkFolder('./Data/S11_Geodesic.py/larger_domain/', outVtkFolder='./Data/S11_Geodesic.py/larger_domain/')

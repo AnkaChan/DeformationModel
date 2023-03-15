@@ -283,6 +283,9 @@ class Tree:
                 newCountour.saddleAllContourWeights.append(newWeights)
                 newCountour.saddleAllContourHeights.append(newHeights)
             print("Num countour lines for saddle ", iNode, ":", len(newCountour.saddleAllContourHeights))
+
+            s.saddleContours[iNode] = newCountour
+
             if draw:
 
                 plotSaddleCountourLine(newCountour.saddleAllContourEdges, newCountour.saddleAllContourWeights, s.gridSize)
