@@ -26,14 +26,14 @@ if __name__ == '__main__':
     tree.load(inputMergeTreeNodes, inputMergeTreeEdges, inputSegmentedField, gridSize=gridSize, splitTree=True, segmentationDataScalarName="multiGaussian0")
     tree.saddleTypeId = 1
 
-    tree.extractContourLineConstraints()
+    tree.extractContourLineConstraintsNew()
     tree.reOrderContourline(True)
 
     tree2 = Tree()
     tree2.load(inputMergeTreeNodes2, inputMergeTreeEdges2, inputSegmentedField2, gridSize=gridSize, splitTree=True, segmentationDataScalarName="multiGaussian1")
     tree2.saddleTypeId = 1
 
-    tree2.extractContourLineConstraints()
+    tree2.extractContourLineConstraintsNew()
     tree2.reOrderContourline(True)
 
     # for iSaddle in range()

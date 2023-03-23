@@ -11,6 +11,8 @@ import vtk
 
 from qpsolvers import solve_qp, available_solvers
 from scipy import sparse
+
+from shapely.geometry.polygon import Polygon, Point
 print('Avaliable qp solvers: ', available_solvers)
 # def writeOBj(outObj, N, X, Y, Z):
 #     '''
@@ -30,13 +32,18 @@ class TreeNode:
     def __init__(s,):
         s.id = None
         s.criticalType = None
-        s.position = []
+        s.position = [] # for visulization
         s.scalar = None
+        s.posInField = None # position in terms of row, col at the scalar field
 
         s.upNodes = []
         s.downNodes = []
         s.upEdges = []
         s.downEdges = []
+
+        # for intermediate tree
+        s.tree0Corr = -1
+        s.tree1Corr = -1
 
 class Edge:
     def __init__(s,):
@@ -46,19 +53,198 @@ class Edge:
         s.downNode = None
         s.nodes = []
 
-class CountourLine:
-    def __init__(s):
-        s.contourIntersectingEdges = []
-        s.contourWeights = []
-        s.contourHeight = None
-        s.upSegment = None
-        s.downSegment = None
+        # for intermediate tree
+        s.segmentIdTree0 = -1
+        s.segmentIdTree1 = -1
 
-class CountourConstraint:
-    def __init__(s):
+
+class ContourLine:
+    def __init__(s, gridSize):
         s.saddleAllContourEdges = []
         s.saddleAllContourWeights = []
         s.saddleAllContourHeights = []
+        s.embracingHigherNodeId = []
+        s.contourLineParameters = []
+        s.shapelyGeometry = []
+
+        s.gridSize = gridSize
+
+        s.allNodes = []
+
+        s.upSegment = None
+        s.downSegment = None
+
+    def numVertices(s):
+        return len(s.saddleAllContourEdges)
+
+    def initializeShapely(s):
+        s.shapelyGeometry = Polygon(s.allNodes)
+
+    def computeNode(s, iNode, ):
+        p1 = np.array(to2DIndex(s.saddleAllContourEdges[iNode][0], s.gridSize))
+        p2 = np.array(to2DIndex(s.saddleAllContourEdges[iNode][1], s.gridSize))
+        p = p1 * s.saddleAllContourWeights[iNode][0] \
+            + p2 * s.saddleAllContourWeights[iNode][1]
+        return p
+
+    def getNode(s, iNode):
+        return s.allNodes[iNode]
+
+    def initializeAllNodes(s):
+        allPts = []
+        n = s.numVertices()
+
+        for iNode in range(n):
+            allPts.append(s.computeNode(iNode))
+
+        s.allNodes.append(np.array(allPts))
+
+    def intialize(s):
+        s.initializeAllNodes()
+        s.initializeShapely()
+
+    def getEdge(s,  iEdge):
+        if iEdge == len(s.saddleAllContourEdges) - 1:
+            nextNode = 0
+        else:
+            nextNode = iEdge + 1
+
+        return  s.getNode(nextNode) - s.getNode(iEdge)
+
+    def checkCCW(s):
+        totalOrientedArea = 0
+        for i in range(1, len(s.saddleAllContourEdges)-1):
+            startingP = s.getNode(0)
+            edgeP1 = s.getNode(i)
+            nextEdge = s.getEdge(i)
+
+            p0p1 = startingP - edgeP1
+
+            totalOrientedArea = totalOrientedArea + nextEdge[0] * p0p1[1] -  nextEdge[1] * p0p1[0]
+
+        if totalOrientedArea > 0:
+            return True
+        else:
+            return False
+
+    def parameterize(s):
+        s.contourLineParameters.append([])
+        totalLength = 0
+
+        for iVert in range(s.numVertices()):
+            s.contourLineParameters[-1].append(np.linalg.norm(s.getNode(iVert)))
+            totalLength += s.contourLineParameters[-1][-1]
+
+        s.contourLineParameters[-1] = np.array(s.contourLineParameters[-1]/totalLength)
+
+    def getPosition(s, t):
+        ts = s.contourLineParameters
+
+        a = np.max(np.where(t >= ts))
+        b = np.min(np.where(t <= ts))
+
+        if b is None:
+            b = a + 1
+        if a == b:
+            return s.getNode(a)
+        assert a == b - 1
+        controlPoints = s.allNodes
+        w = (t - ts[a]) / (ts[b] - ts[a])
+
+        return controlPoints[a] * (1-w) + controlPoints[b] * w
+
+    def reverseOrientation(s):
+        s.saddleAllContourEdges.reverse()
+        s.saddleAllContourWeights.reverse()
+        s.saddleAllContourHeights.reverse()
+        s.contourLineParameters.reverse()
+
+class CountourConstraint:
+    def __init__(s, grideSize):
+        s.contourLines = []
+        s.gridSize = grideSize
+
+    def getContour(s, iContour):
+        return s.contourLines[iContour]
+
+
+    def getNode(s, iContour, iNode):
+        return s.getContour(iContour).allNodes[iContour][iNode]
+
+
+    def numContours(s):
+        return len(s.contourLines)
+
+    def numVertices(s, iContour):
+        return len(s.getContour(iContour).saddleAllContourEdges[iContour])
+
+    def computeNode(s, iContour, iNode, ):
+        p1 = np.array(to2DIndex(s.getContour(iContour).saddleAllContourEdges[iContour][iNode][0], s.gridSize))
+        p2 = np.array(to2DIndex(s.getContour(iContour).saddleAllContourEdges[iContour][iNode][1], s.gridSize))
+        p = p1 * s.getContour(iContour).saddleAllContourWeights[iContour][iNode][0] \
+            + p2 * s.getContour(iContour).saddleAllContourWeights[iContour][iNode][1]
+        return p
+
+    def getEdge(s, iContour,  iEdge):
+        if iEdge == len(s.getContour(iContour).saddleAllContourEdges) - 1:
+            nextNode = 0
+        else:
+            nextNode = iEdge + 1
+
+        return  s.getNode(iContour, nextNode) - s.getNode(iContour, iEdge)
+
+
+
+    def includePoint(s, iContour, p):
+        n = s.numVertices(iContour)
+        inside = False
+
+        p1 = s.getNode(iContour, 0)
+        p1x, p1y = p1[0], p1[1]
+        for i in range(n + 1):
+            p2x, p2y =s.getNode(iContour, i % n)
+            if p[1] > min(p1y, p2y):
+                if p[1] <= max(p1y, p2y):
+                    if p[0] <= max(p1x, p2x):
+                        if p1y != p2y:
+                            xinters = (p[1] - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or p[0] <= xinters:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+
+        return inside
+
+
+    def parameterize(s):
+        for iContour in range(s.numContours()):
+            s.getContour(iContour).contourLineParameters.append([])
+            totalLength = 0
+
+            for iVert in range(s.numVertices(iContour)):
+                s.getContour(iContour).contourLineParameters[-1].append(np.linalg.norm(s.getNode(iContour, iVert)))
+                totalLength += s.getContour(iContour).contourLineParameters[-1][-1]
+
+            s.getContour(iContour).contourLineParameters[-1] = np.array(s.getContour(iContour).contourLineParameters[-1]/totalLength)
+
+    def getPosition(s, iContour, t):
+        ts = s.getContour(iContour).contourLineParameters[iContour]
+
+        a = np.max(np.where(t >= ts))
+        b = np.min(np.where(t <= ts))
+
+        if b is None:
+            b = a + 1
+        if a == b:
+            return s.getNode(iContour, a)
+        assert a == b - 1
+        controlPoints = s.getContour(iContour).allNodes[iContour]
+
+        w = (t - ts[a]) / (ts[b] - ts[a])
+
+        return controlPoints[a] * (1-w) + controlPoints[b] * w
+
+    def addContour(s, newContour):
+        s.contourLines.append(newContour)
 
 class Tree:
     def __init__(s, nodesData=None, edgesData=None, segmentationData=None, gridSize=None, splitTree=False, segmentationDataScalarName="Height"):
@@ -77,8 +263,6 @@ class Tree:
         else:
             actualUp = "up"
             actualDown = "down"
-
-
 
         s.nodeToField = []
         s.contourLineHeight = {}  # key (a, b): a: higher segment, b lower segment
@@ -139,6 +323,20 @@ class Tree:
         if segmentationData is not None:
             s.matchTreeToGrid()
 
+    def numNodes(s):
+        return len(s.nodes)
+
+    def node(s, iNode):
+        return s.nodes[iNode]
+
+    def numEdges(s):
+        return len(s.edges)
+
+
+    def initFrom(s, nodes, edges):
+        s.edges = edges
+        s.nodes = nodes
+
 
     def load(s, nodeFile, edgeFile, segmentationFile, gridSize=None, splitTree=False, segmentationDataScalarName="Height"):
         fieldSeg = pv.read(segmentationFile)
@@ -158,6 +356,9 @@ class Tree:
             matchDis.append(dis[s.nodeToField[-1]])
             # print("Min distance: ", dis[matchedVIds[-1]])
             assert dis[s.nodeToField[-1]] < 1e-6
+
+            s.nodes[iNode].posInField = np.array(to2DIndex(s.nodeToField[-1], s.gridSize))
+
 
     def findContourLineHeight(s, ):
         """
@@ -206,6 +407,7 @@ class Tree:
             for i,j in tqdm.tqdm(itertools.product(range(s.gridSize[0]), range(s.gridSize[1])), desc="Generating candidate edges."):
                 for d in directionsForEdges:
                     if i + d[0] >= 0 and i + d[0] < s.gridSize[0] and j + d[1] >= 0 and j + d[1] < s.gridSize[1]:
+                        assert flatten2DIndex(i, j, gridSize=s.gridSize) == flatten2DIndex(*to2DIndex(flatten2DIndex(i, j, gridSize=s.gridSize), s.gridSize), s.gridSize)
                         edges.append((flatten2DIndex(i, j, gridSize=s.gridSize), flatten2DIndex(i+d[0], j+d[1], gridSize=s.gridSize)))
 
         s.contourIntersectingEdges = []
@@ -252,8 +454,99 @@ class Tree:
             if len(s.contourIntersectingEdges) != len(s.contourLineConstraintWeight):
                 break
 
-    def reOrderContourline(s, draw=False):
+    def extractContourLineConstraintsNew(s, edges=None):
+        '''
+        fieldSeg: flatten segmentation Ids, row major
+        gridSize: (rows, cols)
+        contourLineHeight: a dict contains contour line height between two segments. (seg1, seg2): height. Note that seg1 >= seg2
+        edges: candidate edges to be checked, if it's set none, it will check all the edges
 
+        '''
+
+        s.findContourLineHeight()
+        # don't consider boundary edges
+        directionsForEdges = [
+            (1, 0),
+            (0, 1),
+        ]
+        # if edges is None:
+        #     edges = []
+        #     for i, j in tqdm.tqdm(itertools.product(range(s.gridSize[0]), range(s.gridSize[1])),
+        #                           desc="Generating candidate edges."):
+        #         for d in directionsForEdges:
+        #             if i + d[0] >= 0 and i + d[0] < s.gridSize[0] and j + d[1] >= 0 and j + d[1] < s.gridSize[1]:
+        #                 assert flatten2DIndex(i, j, gridSize=s.gridSize) == flatten2DIndex(
+        #                     *to2DIndex(flatten2DIndex(i, j, gridSize=s.gridSize), s.gridSize), s.gridSize)
+        #                 edges.append((flatten2DIndex(i, j, gridSize=s.gridSize),
+        #                               flatten2DIndex(i + d[0], j + d[1], gridSize=s.gridSize)))
+        segmentedField2D =s.segmentationData["SegmentationId"].reshape(s.gridSize)
+
+        allContourEdges = []
+        for d in directionsForEdges:
+            s1 = segmentedField2D[:segmentedField2D.shape[0]-d[0], :segmentedField2D.shape[1]-d[1]]
+            s2 = segmentedField2D[d[0]:, d[1]:]
+
+            contouredges2D = np.where(s1 != s2)
+            contourEdgesV1Flatten = flatten2DIndex(contouredges2D[0], contouredges2D[1], s.gridSize)
+            contourEdgesV2Flatten = flatten2DIndex(contouredges2D[0] + d[0], contouredges2D[1] + d[1], s.gridSize)
+
+            allContourEdges.extend([(contourEdgesV1Flatten[iE], contourEdgesV2Flatten[iE]) for iE in range(contourEdgesV1Flatten.shape[0])])
+
+        s.contourIntersectingEdges = []
+        s.contourLineConstraintWeight = []
+        s.contourLineConstraintHeight = []
+        s.contourLineConstraintUpDownSegments = []
+
+        for iContourEdge in range(len(allContourEdges)):
+            edge = allContourEdges[iContourEdge]
+            if s.segmentationData["SegmentationId"][edge[0]] != s.segmentationData["SegmentationId"][edge[1]]:
+                s.contourIntersectingEdges.append(edge)
+                h1 = s.segmentationData[s.segmentationDataScalarName][edge[0]]
+                h2 = s.segmentationData[s.segmentationDataScalarName][edge[1]]
+                if h1 > h2:
+                    contourNeiSegs = (
+                    s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][edge[1]])
+                    if s.contourLineHeight.get(contourNeiSegs) is None:
+                        s.contourIntersectingEdges.pop()
+                        print("Warining! No contour line height defined between: ", contourNeiSegs)
+                        continue
+                    contourHeight = s.contourLineHeight[
+                        s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][
+                            edge[1]]]
+                    contoutUpDownSegments = (
+                    s.segmentationData["SegmentationId"][edge[0]], s.segmentationData["SegmentationId"][edge[1]])
+                else:
+                    contourNeiSegs = (
+                    s.segmentationData["SegmentationId"][edge[1]], s.segmentationData["SegmentationId"][edge[0]])
+                    if s.contourLineHeight.get(contourNeiSegs) is None:
+                        s.contourIntersectingEdges.pop()
+                        print("Warining! No contour line height defined between: ", contourNeiSegs)
+
+                        continue
+                    contourHeight = s.contourLineHeight[
+                        s.segmentationData["SegmentationId"][edge[1]], s.segmentationData["SegmentationId"][
+                            edge[0]]]
+                    contoutUpDownSegments = (
+                    s.segmentationData["SegmentationId"][edge[1]], s.segmentationData["SegmentationId"][edge[0]])
+
+                # check if h1 == h2
+                if h1 == h2:
+                    w1 = 0.5
+                else:
+                    w1 = (contourHeight - h2) / (h1 - h2)
+
+                assert 0 <= w1 <= 1
+                w2 = 1 - w1
+
+                s.contourLineConstraintWeight.append((w1, w2))
+                s.contourLineConstraintHeight.append(contourHeight)
+                s.contourLineConstraintUpDownSegments.append(contoutUpDownSegments)
+
+            if len(s.contourIntersectingEdges) != len(s.contourLineConstraintWeight):
+                break
+
+
+    def reOrderContourline(s, draw=False, waitTime = 0):
 
         for iNode in range(len(s.nodes)):
             # skip the nodes that are not saddle points
@@ -266,7 +559,7 @@ class Tree:
             saddleNeighborEdges = findSaddleNeighborhood(iMeshVert, s.gridSize)
             initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, s.gridSize,
                                                                        s.contourIntersectingEdges)
-            newCountour = CountourConstraint()
+            newCountourConstraints = CountourConstraint(s.gridSize)
 
 
             while initCEdge is not None:
@@ -279,17 +572,48 @@ class Tree:
                 initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, s.gridSize,
                                                                            s.contourIntersectingEdges, edgesToRemove)
 
-                newCountour.saddleAllContourEdges.append(newEdges)
-                newCountour.saddleAllContourWeights.append(newWeights)
-                newCountour.saddleAllContourHeights.append(newHeights)
-            print("Num countour lines for saddle ", iNode, ":", len(newCountour.saddleAllContourHeights))
 
-            s.saddleContours[iNode] = newCountour
+                newContour = ContourLine(s.gridSize)
+                newContour.saddleAllContourEdges.append(newEdges)
+                newContour.saddleAllContourWeights.append(newWeights)
+                newContour.saddleAllContourHeights.append(newHeights)
 
-            if draw:
+                # check if ccw
+                if not newContour.checkCCW():
+                    print("Orientation is Not CCW, reverse it!")
+                    newContour.reverseOrientation()
 
-                plotSaddleCountourLine(newCountour.saddleAllContourEdges, newCountour.saddleAllContourWeights, s.gridSize)
-                plt.waitforbuttonpress()
+                newCountourConstraints.addContour(newContour)
+
+            # determine the which upper node belongs to with contour
+            upperNodes = []
+
+            for iContour in range(newCountourConstraints.numContours()):
+                newCountourConstraints.getContour(iContour).intialize()
+                contourLine = newCountourConstraints.getContour(iContour)
+                contourLine.parameterize()
+
+                for upperNodeId in s.nodes[iNode].upNodes:
+                    upperNodeCorrespondingMeshPt = s.nodeToField[upperNodeId]
+                    upperNodePos = np.array(to2DIndex(upperNodeCorrespondingMeshPt, s.gridSize))
+                    upperNodePosSp = Point(upperNodePos[0], upperNodePos[1])
+
+                    # if newCountour.includePoint(iContour, upperNodePos):
+                    if contourLine.shapelyGeometry[iContour].contains(upperNodePosSp):
+                        contourLine.embracingHigherNodeId.append(upperNodeId)
+                        upperNodes.append(upperNodePos)
+
+            assert newCountourConstraints.numContours() == 2
+
+            print("Num countour lines for saddle ", iNode, ":", newCountourConstraints.numContours())
+            s.saddleContours[iNode] = newCountourConstraints
+
+            # determining which contourline contains which higher nodes
+
+
+            # if draw:
+                # plotSaddleCountourLine(newCountour.saddleAllContourEdges, newCountour.saddleAllContourWeights, s.gridSize, upperNodes=np.array(upperNodes))
+                # plt.waitforbuttonpress(waitTime)
 
 
 
@@ -497,13 +821,13 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
 
     return contourEdgesReordered, contourWeightsReordered, contourHeightsReordered
 
-def plotSaddleCountourLine(saddleAllContourEdges, saddleAllContourWeights, gridSize):
+def plotSaddleCountourLine(saddleAllContourEdges, saddleAllContourWeights, gridSize, upperNodes=None):
     plt.figure()
     plt.ylim(0, gridSize[1])
     plt.xlim(0, gridSize[0])
     assert len(saddleAllContourEdges)==2
 
-    # colors = ['r', 'g', ]
+    colors = ['r', 'g', ]
     for iCountour in range(len(saddleAllContourEdges)):
         allPts= []
         pt1 = np.array(to2DIndex(saddleAllContourEdges[iCountour][0][0], gridSize)) * \
@@ -520,7 +844,10 @@ def plotSaddleCountourLine(saddleAllContourEdges, saddleAllContourWeights, gridS
             allPts.append(pt2)
         allPts.append(pt1)
         allPts = np.array(allPts)
-        plt.plot(allPts[:, 0], allPts[:, 1])
+
+        if upperNodes is not  None:
+            plt.scatter(upperNodes[iCountour, 0], upperNodes[iCountour,1], marker ="*", color = colors[iCountour])
+        plt.plot(allPts[:, 0], allPts[:, 1], color = colors[iCountour])
 
 
 def writeOBj(outObj, X, Y, Z, gridSize):

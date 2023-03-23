@@ -4,7 +4,7 @@ import pandas as pd
 
 from M01_TopologicalExtraction import *
 from M03_Preprocessing import *
-
+from M04_InterpolationAnimation import *
 if __name__ == '__main__':
     # inDeformDataFolder = r'.\Data\geodesics\JulienExample\animation'
     inDeformDataFolder = r'.\Data\geodesics\JulienExample\pointData'
@@ -18,6 +18,7 @@ if __name__ == '__main__':
         [0, 0],
         [1, -1],
         [2, 1],
+        [5, 3]
     ]
 
     inputSegmentedField = './Data/geodesics/JulienExample/tree1segs.vtk'
@@ -31,34 +32,38 @@ if __name__ == '__main__':
     # the 257 in main
     gridSize = (256, 257) #(Y, X) resolution in paraview (rows + 1, cols + 1)
 
-    tree = Tree()
-    tree.load(inputMergeTreeNodes, inputMergeTreeEdges, inputSegmentedField, gridSize=gridSize, splitTree=True, segmentationDataScalarName="multiGaussian0")
-    tree.saddleTypeId = 1
+    tree0 = Tree()
+    tree0.load(inputMergeTreeNodes, inputMergeTreeEdges, inputSegmentedField, gridSize=gridSize, splitTree=True, segmentationDataScalarName="multiGaussian0")
+    tree0.saddleTypeId = 1
 
-    tree.extractContourLineConstraints()
-    tree.reOrderContourline(True)
+    tree0.extractContourLineConstraintsNew()
+    # tree0.extractContourLineConstraints()
+    tree0.reOrderContourline(False, waitTime=100)
+
+    tree1 = Tree()
+    tree1.load(inputMergeTreeNodes2, inputMergeTreeEdges2, inputSegmentedField2, gridSize=gridSize, splitTree=True, segmentationDataScalarName="multiGaussian1")
+    tree1.saddleTypeId = 1
+
+    tree1.extractContourLineConstraintsNew()
+    tree1.reOrderContourline(False, waitTime=100)
+
+    animation = LinearAnimation(tree0, tree1, correspondences=treeToTreeCorrespondence)
+
+    # for intermediateTreeDataFile in deformationDataFileToTree2s:
+    #     intermediateData = pd.read_csv(intermediateTreeDataFile)
+    #
+    #     preprocessTreeNodeData(tree, intermediateData)
+    #
+    #     # rows = []
+    #     # csvreader = csv.reader(file)
+    #     # header = next(csvreader)
+    #     # for row in csvreader:
+    #     #     rows.append(row)
+    #     # print(header)
+    #     # print(rows)
 
 
-    for intermediateTreeDataFile in deformationDataFileToTree2s:
-        intermediateData = pd.read_csv(intermediateTreeDataFile)
 
-        preprocessTreeNodeData(tree, intermediateData)
-
-        # rows = []
-        # csvreader = csv.reader(file)
-        # header = next(csvreader)
-        # for row in csvreader:
-        #     rows.append(row)
-        # print(header)
-        # print(rows)
-
-
-    tree2 = Tree()
-    tree2.load(inputMergeTreeNodes2, inputMergeTreeEdges2, inputSegmentedField2, gridSize=gridSize, splitTree=True, segmentationDataScalarName="multiGaussian1")
-    tree2.saddleTypeId = 1
-
-    tree2.extractContourLineConstraints()
-    tree2.reOrderContourline(True)
 
 
 
