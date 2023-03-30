@@ -9,6 +9,8 @@ class LinearAnimation:
         s.tree1 = tree1
         s.correspondences = correspondences
 
+        s.gridSize = tree0.gridsize
+
         s.intermediateTree = Tree()
         assert  tree0.saddleTypeId == tree1.saddleTypeId
         s.intermediateTree.saddleTypeId = tree0.saddleTypeId
@@ -115,13 +117,55 @@ class LinearAnimation:
 
         # register the contour line
         for iNode in range(s.intermediateTree.numNodes()):
+            if s.intermediateTree.node(iNode).tree0Corr == -1:
+                s.intermediateTree.node(iNode).type = "emerging"
+            elif s.intermediateTree.node(iNode).tree1Corr == -1:
+                s.intermediateTree.node(iNode).type = "vanishing"
+            else:
+                s.intermediateTree.node(iNode).type = "preserving"
+
+            # if such a node is a saddle node in either tree0 or tree1 we treat it as a saddle
+            if s.getTree0CorrespondingNode(iNode).criticalType == s.intermediateTree.saddleTypeId or\
+                s.getTree1CorrespondingNode(iNode).criticalType == s.intermediateTree.saddleTypeId:
+                s.intermediateTree.node(iNode).criticalType = s.intermediateTree.saddleTypeId
+
             if s.intermediateTree.node(iNode).criticalType != s.intermediateTree.saddleTypeId:
                 continue
 
+            newCountourConstraints = CountourConstraint(gridSize)
+
             # process contour for saddle saddle
             if s.intermediateTree.node(iNode).tree0Corr != -1 and s.intermediateTree.node(iNode).tree1Corr != -1:
+                # preserving saddle
+                # interleave the vertices in the curve in this case
+                # first step find the matching of the contour line based on the contained up node
+                contourConstraintTree0 = s.tree0.saddleContours[s.intermediateTree.node(iNode).tree0Corr]
+                contourConstraintTree1 = s.tree1.saddleContours[s.intermediateTree.node(iNode).tree1Corr]
+
+                if s.getTree0CorrespondingNode(iNode).criticalType == s.intermediateTree.saddleTypeId or \
+                        s.getTree1CorrespondingNode(iNode).criticalType == s.intermediateTree.saddleTypeId:
+                    # both contour lines are preserved
+                    contourMatches =[[0,0], [0,1]]
+                    if s.tree0ToIntermediateTree[contourConstraintTree0.getContour(0).embracingHigherNodeId] \
+                        != s.tree1ToIntermediateTree[contourConstraintTree1.getContour(0).embracingHigherNodeId]:
+                        contourMatches = [[0, 1], [1, 0]]
+
+                    assert s.tree0ToIntermediateTree[contourConstraintTree0.getContour(contourMatches[0][0]).embracingHigherNodeId] \
+                        == s.tree1ToIntermediateTree[contourConstraintTree1.getContour(contourMatches[0][1]).embracingHigherNodeId]
+
+                    assert s.tree0ToIntermediateTree[contourConstraintTree0.getContour(contourMatches[1][0]).embracingHigherNodeId] \
+                        == s.tree1ToIntermediateTree[contourConstraintTree1.getContour(contourMatches[1][1]).embracingHigherNodeId]
+
+
+                    for iContour in range(len(contourMatches)):
+                        newContour = s.blendContourLines(contourConstraintTree0.getContour(contourMatches[iContour][0]),
+                                            contourConstraintTree0.getContour(contourMatches[iContour][0]))
+                        newContour.type = "preserving"
+                        newCountourConstraints.addContour(newContour)
+                else:
+                    
+
                 pass
-                # blend the vertices in the curve in this case
             elif s.intermediateTree.node(iNode).tree0Corr != -1:
                 # in this case we just duplicate the contour line from tree 0
                 contourLine = deepcopy(tree0.saddleContours[s.intermediateTree.node(iNode).tree0Corr])
@@ -142,10 +186,41 @@ class LinearAnimation:
             else:
                 assert False
 
-    def blendContourLines(s, contourline1, contourId1, contourline2, contourId2):
-        pass
+    def blendContourLines(s, contourline0, contourline1):
+        newContour = ContourLine(s.gridSize)
 
+        # calculate parameters
 
+        i0 = 0
+        i1 = 0
+
+        allParameters = []
+        correspondence = [] # 0: from tree0, 1: from tree:1, from both trees
+        while i0 < contourline0.numVertices() and i1 < contourline1.numVertices():
+            if contourline0.contourLineParameters[i0] == contourline0.contourLineParameters[i0]:
+                correspondence.append(2)
+                allParameters.append(contourline0.contourLineParameters[i0])
+                i0 = i0 +1
+                i1 = i1 +1
+            elif contourline0.contourLineParameters[i0] == contourline0.contourLineParameters[i0]:
+                correspondence.append(0)
+                allParameters.append(contourline0.contourLineParameters[i0])
+                i0 = i0 +1
+
+            else:
+                correspondence.append(1)
+                allParameters.append(contourline1.contourLineParameters[i1])
+                i1 = i1 +1
+
+        newContour.contourLineParameters = allParameters
+        newContour.correspondence = correspondence
+        return newContour
+
+    def getTree0CorrespondingNode(s, iNode):
+        return s.tree0.node(s.intermediateTree.node(iNode).tree0Corr)
+
+    def getTree1CorrespondingNode(s, iNode):
+        return s.tree1.node(s.intermediateTree.node(iNode).tree1Corr)
 
 
 
