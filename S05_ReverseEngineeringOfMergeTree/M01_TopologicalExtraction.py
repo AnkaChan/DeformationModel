@@ -76,6 +76,9 @@ class ContourLine:
         s.upSegment = None
         s.downSegment = None
 
+        s.startState = None
+        s.endState = None
+
         s.type = None
 
     def numVertices(s):
@@ -139,14 +142,13 @@ class ContourLine:
             return False
 
     def parameterize(s):
-        s.contourLineParameters.append([])
         totalLength = 0
 
         for iVert in range(s.numVertices()):
-            s.contourLineParameters[-1].append(np.linalg.norm(s.getNode(iVert)))
-            totalLength += s.contourLineParameters[-1][-1]
+            s.contourLineParameters.append(np.linalg.norm(s.getNode(iVert)))
+            totalLength += s.contourLineParameters[-1]
 
-        s.contourLineParameters[-1] = np.array(s.contourLineParameters[-1]/totalLength)
+        s.contourLineParameters = np.array(s.contourLineParameters)/totalLength
 
     def getPosition(s, t):
         ts = s.contourLineParameters
@@ -170,7 +172,27 @@ class ContourLine:
         s.saddleAllContourHeights.reverse()
         s.contourLineParameters.reverse()
 
-class CountourConstraint:
+
+    def includePoint(s, p):
+        n = s.numVertices()
+        inside = False
+
+        p1 = s.getNode(0)
+        p1x, p1y = p1[0], p1[1]
+        for i in range(n + 1):
+            p2x, p2y =s.getNode( i % n)
+            if p[1] > min(p1y, p2y):
+                if p[1] <= max(p1y, p2y):
+                    if p[0] <= max(p1x, p2x):
+                        if p1y != p2y:
+                            xinters = (p[1] - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or p[0] <= xinters:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+
+        return inside
+
+class ContourConstraint:
     def __init__(s, grideSize):
         s.contourLines = []
         s.gridSize = grideSize
@@ -396,8 +418,8 @@ class Tree:
             assert len(upSegs) == 2
             assert len(downsegs) == 1
 
-            s.contourLineHeight[(upSegs[0], downsegs[0])] = s.nodesData['Scalar'][iNode]
-            s.contourLineHeight[(upSegs[1], downsegs[0])] = s.nodesData['Scalar'][iNode]
+            s.contourLineHeight[(upSegs[0], downsegs[0])] = s.nodesData["Scalar"][iNode]
+            s.contourLineHeight[(upSegs[1], downsegs[0])] = s.nodesData["Scalar"][iNode]
 
 
     def extractContourLineConstraints(s, edges=None):
@@ -572,7 +594,7 @@ class Tree:
             saddleNeighborEdges = findSaddleNeighborhood(iMeshVert, s.gridSize)
             initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, s.gridSize,
                                                                        s.contourIntersectingEdges)
-            newCountourConstraints = CountourConstraint(s.gridSize)
+            newContourConstraints = ContourConstraint(s.gridSize)
 
 
             while initCEdge is not None:
@@ -596,14 +618,14 @@ class Tree:
                     print("Orientation is Not CCW, reverse it!")
                     newContour.reverseOrientation()
 
-                newCountourConstraints.addContour(newContour)
+                newContourConstraints.addContour(newContour)
 
             # determine the which upper node belongs to with contour
             upperNodes = []
 
-            for iContour in range(newCountourConstraints.numContours()):
-                newCountourConstraints.getContour(iContour).intialize()
-                contourLine = newCountourConstraints.getContour(iContour)
+            for iContour in range(newContourConstraints.numContours()):
+                newContourConstraints.getContour(iContour).intialize()
+                contourLine = newContourConstraints.getContour(iContour)
                 contourLine.parameterize()
 
                 for upperNodeId in s.nodes[iNode].upNodes:
@@ -616,16 +638,16 @@ class Tree:
                         contourLine.embracingHigherNodeId = upperNodeId
                         upperNodes.append(upperNodePos)
 
-            assert newCountourConstraints.numContours() == 2
+            assert newContourConstraints.numContours() == 2
 
-            print("Num countour lines for saddle ", iNode, ":", newCountourConstraints.numContours())
-            s.saddleContours[iNode] = newCountourConstraints
+            print("Num countour lines for saddle ", iNode, ":", newContourConstraints.numContours())
+            s.saddleContours[iNode] = newContourConstraints
 
             # determining which contourline contains which higher nodes
 
 
             if draw:
-                plotSaddleCountourLine(newCountourConstraints, s.gridSize, upperNodes=np.array(upperNodes))
+                plotSaddleCountourLine(newContourConstraints, s.gridSize, upperNodes=np.array(upperNodes))
                 plt.waitforbuttonpress(waitTime)
 
 
@@ -834,15 +856,15 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
 
     return contourEdgesReordered, contourWeightsReordered, contourHeightsReordered
 
-def plotSaddleCountourLine(newCountourConstraints, gridSize, upperNodes=None):
+def plotSaddleCountourLine(newContourConstraints, gridSize, upperNodes=None):
     plt.figure()
     plt.ylim(0, gridSize[1])
     plt.xlim(0, gridSize[0])
-    assert newCountourConstraints.numContours() == 2
+    assert newContourConstraints.numContours() == 2
 
     colors = ['r', 'g', ]
-    for iContour in range(newCountourConstraints.numContours()):
-        allPts = newCountourConstraints.getAllNodes(iContour)
+    for iContour in range(newContourConstraints.numContours()):
+        allPts = newContourConstraints.getAllNodes(iContour)
 
         allPts = np.vstack([allPts, allPts[:1, :]])
 
