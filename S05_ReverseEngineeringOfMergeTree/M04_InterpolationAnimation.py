@@ -132,6 +132,7 @@ class LinearAnimation:
         s.intermediateTree.initFrom(nodes, edges)
 
         # register the contour line
+
         for iNode in range(s.intermediateTree.numNodes()):
             if s.intermediateTree.node(iNode).tree0Corr == -1:
                 s.intermediateTree.node(iNode).type = "emerging"
@@ -139,6 +140,14 @@ class LinearAnimation:
                 s.intermediateTree.node(iNode).type = "vanishing"
             else:
                 s.intermediateTree.node(iNode).type = "preserving"
+
+        for iNode in range(s.intermediateTree.numNodes()):
+            # if s.intermediateTree.node(iNode).tree0Corr == -1:
+            #     s.intermediateTree.node(iNode).type = "emerging"
+            # elif s.intermediateTree.node(iNode).tree1Corr == -1:
+            #     s.intermediateTree.node(iNode).type = "vanishing"
+            # else:
+            #     s.intermediateTree.node(iNode).type = "preserving"
 
             # if such a node is a saddle node in either tree0 or tree1 we treat it as a saddle
             if s.getTree0CorrespondingNode(iNode).criticalType == s.intermediateTree.saddleTypeId or\
@@ -163,6 +172,24 @@ class LinearAnimation:
 
                 # both contour lines are preserved
                 contourMatches =[[0,0], [0,1]]
+
+                embracingTree0UpNodeInIntermediateTree = None
+                embracingTree1UpNodeInIntermediateTree = None
+
+                nextNodeTree0 = contourConstraintTree0.getContour(contourMatches[0][0]).embracingHigherNodeId
+
+                while s.intermediateTree.node(s.tree0ToIntermediateTree[nextNodeTree0]).type != "preserving":
+                    upNodes = tree0.node(nextNodeTree0).upNodes
+
+                    assert s.intermediateTree.node(s.tree0ToIntermediateTree[nextNodeTree0]).criticalType == s.intermediateTree.saddleTypeId:
+                    if s.getTree0NodePersistanceType(upNodes[0]) == "preserving":
+                        nextNodeTree0 = upNodes[0]
+                    else:
+                        nextNodeTree0 = upNodes[1]
+
+
+
+
                 if s.tree0ToIntermediateTree[contourConstraintTree0.getContour(0).embracingHigherNodeId] \
                     != s.tree1ToIntermediateTree[contourConstraintTree1.getContour(0).embracingHigherNodeId]:
                     contourMatches = [[0, 1], [1, 0]]
@@ -505,3 +532,13 @@ class LinearAnimation:
             contourHeightsReordered.append(contourLineConstraintHeight[currentEdgeIndex])
 
         return contourEdgesReordered, contourWeightsReordered, contourHeightsReordered
+
+    def getTree0NodePersistanceType(s, iNode):
+
+        return s.intermediateTree.node(s.tree0ToIntermediateTree[iNode]).type
+
+
+    def getTree1NodePersistanceType(s, iNode):
+        return s.intermediateTree.node(s.tree1ToIntermediateTree[iNode]).type
+
+    def getClosestUpNode(se):
