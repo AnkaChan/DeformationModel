@@ -1,5 +1,9 @@
+import numpy as np
+
 from M01_TopologicalExtraction import *
 from copy import deepcopy
+from matplotlib.collections import LineCollection
+
 
 def findCorr(iNode, iTree, treeToTreeCorrespondence):
     anotherTreeId = (iTree + 1) % 2
@@ -20,6 +24,7 @@ class LinearAnimation:
         s.intermediateTreeHeights = intermediateTreeHeights
 
         s.gridSize = tree0.gridSize
+        s.numRegistrationCandidates = 100
 
         s.intermediateTree = Tree()
         assert  tree0.saddleTypeId == tree1.saddleTypeId
@@ -78,9 +83,9 @@ class LinearAnimation:
                 node.id = iTree1Node + tree0.numNodes()
                 node.tree0Corr = s.corrsTree1ToTree0[iTree1Node]
                 node.tree1Corr = iTree1Node
+                nodes.append(node)
 
             s.tree1ToIntermediateTree[iTree1Node] = node.id
-            nodes.append(node)
 
         edges = []
 
@@ -173,41 +178,30 @@ class LinearAnimation:
                 # both contour lines are preserved
                 contourMatches =[[0,0], [0,1]]
 
-                embracingTree0UpNodeInIntermediateTree = None
-                embracingTree1UpNodeInIntermediateTree = None
-
                 nextNodeTree0 = contourConstraintTree0.getContour(contourMatches[0][0]).embracingHigherNodeId
+                embracingTree0UpNodeInIntermediateTree = s.tree0ToIntermediateTree[s.getClosestUpNodeTree0(nextNodeTree0)]
+                nextNodeTree1 = contourConstraintTree1.getContour(contourMatches[0][1]).embracingHigherNodeId
+                embracingTree1UpNodeInIntermediateTree = s.tree0ToIntermediateTree[s.getClosestUpNodeTree1(nextNodeTree1)]
 
-                while s.intermediateTree.node(s.tree0ToIntermediateTree[nextNodeTree0]).type != "preserving":
-                    upNodes = tree0.node(nextNodeTree0).upNodes
-
-                    assert s.intermediateTree.node(s.tree0ToIntermediateTree[nextNodeTree0]).criticalType == s.intermediateTree.saddleTypeId:
-                    if s.getTree0NodePersistanceType(upNodes[0]) == "preserving":
-                        nextNodeTree0 = upNodes[0]
-                    else:
-                        nextNodeTree0 = upNodes[1]
-
-
-
-
-                if s.tree0ToIntermediateTree[contourConstraintTree0.getContour(0).embracingHigherNodeId] \
-                    != s.tree1ToIntermediateTree[contourConstraintTree1.getContour(0).embracingHigherNodeId]:
+                if embracingTree0UpNodeInIntermediateTree != embracingTree1UpNodeInIntermediateTree:
                     contourMatches = [[0, 1], [1, 0]]
 
-                assert s.tree0ToIntermediateTree[contourConstraintTree0.getContour(contourMatches[0][0]).embracingHigherNodeId] \
-                    == s.tree1ToIntermediateTree[contourConstraintTree1.getContour(contourMatches[0][1]).embracingHigherNodeId]
+                assert s.tree0ToIntermediateTree[s.getClosestUpNodeTree0(contourConstraintTree0.getContour(contourMatches[0][0]).embracingHigherNodeId)] \
+                    == s.tree1ToIntermediateTree[s.getClosestUpNodeTree1(contourConstraintTree1.getContour(contourMatches[0][1]).embracingHigherNodeId)]
 
-                assert s.tree0ToIntermediateTree[contourConstraintTree0.getContour(contourMatches[1][0]).embracingHigherNodeId] \
-                    == s.tree1ToIntermediateTree[contourConstraintTree1.getContour(contourMatches[1][1]).embracingHigherNodeId]
+                assert s.tree0ToIntermediateTree[s.getClosestUpNodeTree0(contourConstraintTree0.getContour(contourMatches[1][0]).embracingHigherNodeId)] \
+                    == s.tree1ToIntermediateTree[s.getClosestUpNodeTree1(contourConstraintTree1.getContour(contourMatches[1][1]).embracingHigherNodeId)]
 
 
                 for iContour in range(len(contourMatches)):
                     newContour = s.blendContourLines(contourConstraintTree0.getContour(contourMatches[iContour][0]),
-                                        contourConstraintTree0.getContour(contourMatches[iContour][0]))
+                                        contourConstraintTree1.getContour(contourMatches[iContour][1]))
                     newContour.type = "preserving"
+                    newContour.startState = contourConstraintTree0.getContour(contourMatches[iContour][0])
+                    newContour.endState = contourConstraintTree1.getContour(contourMatches[iContour][1])
                     newCountourConstraints.addContour(newContour)
 
-
+                s.intermediateTree.saddleContours[iNode] = newCountourConstraints
 
                 pass
             elif s.intermediateTree.node(iNode).tree0Corr != -1:
@@ -235,31 +229,67 @@ class LinearAnimation:
 
                 # assert contourLineAtHeight[0].includePoint(tree1.node(findCorr(preservingUpNode, 0, s.correspondences)).posInField)
 
-                contourLineEdgeState = contourLineAtHeight[0]
+                contourLineEndState = contourLineAtHeight[0]
                 newCountourConstraints = ContourConstraint(s.gridSize)
 
-                allPts = contourLineEdgeState.allNodes
+                allPts = contourLineEndState.allNodes
 
-                allPts[ :, 0] = 1.4 * allPts[ :, 0] / s.gridSize[0] - 0.7
-                allPts[ :, 1] = 1.4 * allPts[ :, 1] / s.gridSize[1] - 0.7
+                allPts[:, 0] = 1.4 * allPts[:, 0] / s.gridSize[0] - 0.7
+                allPts[:, 1] = 1.4 * allPts[:, 1] / s.gridSize[1] - 0.7
                 allPts = np.hstack([allPts, np.zeros((allPts.shape[0], 1))])
 
                 pd = pv.PolyData(allPts)
                 pd.save("allPts.ply", binary=False)
 
                 for iContour, contourLine in enumerate(contourLIneConstraints.contourLines):
+
                     if iContour == preservingCountourId:
-                        contourLineEdgeState.parameterize()
-                        newContour = deepcopy(contourLine)
+                        parameterShifts = np.linspace(0,1, s.numRegistrationCandidates,endpoint=False )
+                        bestStartNode = None
+                        for iStartNode in range(contourLineEndState.numVertices()):
+                            contourLineEndState.parameterize(iStartNode)
+                            pts=[]
+                            ts = np.linspace(0,1,100)
+                            for t in ts:
+                                pts.append(contourLineEndState.getPosition(t))
+                            pts = np.array(pts)
+                            # plt.plot(pts[:,0], pts[:,1])
+                            # plt.show()
+
+                            x = pts[:,0]
+                            y = pts[:,1]
+                            cols =  ts
+
+                            points = np.array([x, y]).T.reshape(-1, 1, 2)
+                            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+                            fig, ax = plt.subplots()
+                            lc = LineCollection(segments, cmap='viridis')
+                            lc.set_array(cols)
+                            lc.set_linewidth(2)
+                            line = ax.add_collection(lc)
+                            fig.colorbar(line, ax=ax)
+
+                            plt.show()
+
+
+                        newContour = s.blendContourLines(contourLine, contourLineEndState)
                         newContour.type = "preserving"
-                        newContour.endState = s.blendContourLines(contourLine, contourLineEdgeState)
+                        newContour.startState = contourLine
+                        newContour.endState = contourLineEndState
+
+
                     else:
                         newContour = deepcopy(contourLine)
+                        newContour.startState = contourLine
+
                         newContour.type = "vanishing"
 
-
+                    newCountourConstraints.addContour(newContour)
+                s.intermediateTree.saddleContours[iNode] = newCountourConstraints
 
             elif s.intermediateTree.node(iNode).tree1Corr != -1:
+                # emerging saddle
                 # in this case we just duplicate the contour line from tree 0
                 contourLine = deepcopy(tree1.saddleContours[s.intermediateTree.node(iNode).tree1Corr])
                 # match the upper node
@@ -269,7 +299,7 @@ class LinearAnimation:
                 s.intermediateTree.saddleContours[iNode] = contourLine
             else:
                 assert False
-
+        s.intermediateTree.findRootNode()
 
     def blendContourLines(s, contourline0, contourline1):
         newContour = ContourLine(s.gridSize)
@@ -541,4 +571,53 @@ class LinearAnimation:
     def getTree1NodePersistanceType(s, iNode):
         return s.intermediateTree.node(s.tree1ToIntermediateTree[iNode]).type
 
-    def getClosestUpNode(se):
+    # this is incomplete, assuming the one level higher node is a preserving node
+    def getClosestUpNodeTree0(s, nextNodeTree):
+
+        while s.intermediateTree.node(s.tree0ToIntermediateTree[nextNodeTree]).type != "preserving":
+            upNodes = s.tree0.node(nextNodeTree).upNodes
+
+            assert s.intermediateTree.node(
+                s.tree0ToIntermediateTree[nextNodeTree]).criticalType == s.intermediateTree.saddleTypeId
+            if s.getTree0NodePersistanceType(upNodes[0]) == "preserving":
+                nextNodeTree = upNodes[0]
+            else:
+                nextNodeTree = upNodes[1]
+
+        return nextNodeTree
+
+    def getClosestUpNodeTree1(s, nextNodeTree):
+
+        while s.intermediateTree.node(s.tree1ToIntermediateTree[nextNodeTree]).type != "preserving":
+            upNodes = s.tree1.node(nextNodeTree).upNodes
+
+            assert s.intermediateTree.node(
+                s.tree1ToIntermediateTree[nextNodeTree]).criticalType == s.intermediateTree.saddleTypeId
+            if s.getTree1NodePersistanceType(upNodes[0]) == "preserving":
+                nextNodeTree = upNodes[0]
+            else:
+                nextNodeTree = upNodes[1]
+
+        return nextNodeTree
+
+
+    def interpolateAnimation(s, t):
+
+        nodeQueue = [s.intermediateTree.rootNodeId]
+
+        while len(nodeQueue) != 0:
+            nodeId = nodeQueue[0]
+            node = s.intermediateTree.node(nodeId)
+
+            if node.type == "preserving":
+                # interpolate
+                pass
+
+            # elif node.type == ""
+
+
+    def computeRegisterationDis(s, contourLine1, contourLine2):
+
+        for iVert in range(len(contourLine1.numVertices())):
+            # p1 =
+            pass

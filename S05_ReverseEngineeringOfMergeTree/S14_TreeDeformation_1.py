@@ -95,6 +95,7 @@ if __name__ == '__main__':
 
     animation = LinearAnimation(tree0, tree1, correspondences=treeToTreeCorrespondence, intermediateTreeHeights=intermediateTreeNodeHeight)
 
+    print(animation)
 
     # for intermediateTreeDataFile in deformationDataFileToTree2s:
     #     intermediateData = pd.read_csv(intermediateTreeDataFile)

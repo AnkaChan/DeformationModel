@@ -1,3 +1,5 @@
+import array
+
 import pyvista as pv
 import numpy as np
 import itertools, glob, os, tqdm
@@ -141,26 +143,51 @@ class ContourLine:
         else:
             return False
 
-    def parameterize(s):
+    def parameterize(s, parameterStartNodeId=0):
         totalLength = 0
+        s.contourLineParameters = np.zeros((s.numVertices(),))
+        for iVert in range(s.numVertices()-1):
+            vertId = iVert + parameterStartNodeId
+            if vertId >= s.numVertices():
+                vertId = vertId - s.numVertices()
 
-        for iVert in range(s.numVertices()):
-            s.contourLineParameters.append(np.linalg.norm(s.getNode(iVert)))
-            totalLength += s.contourLineParameters[-1]
+            edgeLength = np.linalg.norm(s.getEdge(vertId))
+            s.contourLineParameters[vertId] = (totalLength + edgeLength)
+            totalLength += edgeLength
 
-        s.contourLineParameters = np.array(s.contourLineParameters)/totalLength
+        totalLength += np.linalg.norm(s.getEdge(s.numVertices()-1))
+        s.contourLineParameters = s.contourLineParameters/totalLength
+
+        # if parameterStartNodeId != 0:
+        #     # sort the nodes to make sure their parameters are ascending
+        #     sortedId = np.argsort(s.contourLineParameters)
+        #     s.contourLineParameters = s.contourLineParameters[sortedId]
+        #     s.saddleAllContourEdges = s.saddleAllContourEdges[sortedId]
+        #     s.saddleAllContourWeights = s.saddleAllContourWeights[sortedId]
+        #     s.saddleAllContourHeights = s.saddleAllContourHeights[sortedId]
+        #     s.embracingHigherNodeId = s.embracingHigherNodeId[sortedId]
 
     def getPosition(s, t):
         ts = s.contourLineParameters
 
-        a = np.max(np.where(t >= ts))
-        b = np.min(np.where(t <= ts))
+        if t >= 1:
+            t = t-1
+
+        diffa = ts - t
+        diffa[diffa >0] = -2
+        a = np.argmax(diffa)
+
+        diffb = ts - t
+        diffb[diffb <0] = 2
+        b = np.argmin(diffb)
+        # a = np.max(np.where(t >= ts))
+        # b = np.min(np.where(t <= ts))
 
         if b is None:
-            b = a + 1
+            b = a
         if a == b:
             return s.getNode(a)
-        assert a == b - 1
+        # assert a == b - 1
         controlPoints = s.allNodes
         w = (t - ts[a]) / (ts[b] - ts[a])
 
@@ -287,6 +314,8 @@ class Tree:
         s.edges = []
 
         s.isSplitTree = splitTree
+
+        s.rootNodeId = None
 
         if splitTree:
             actualUp = "down"
@@ -649,6 +678,13 @@ class Tree:
             if draw:
                 plotSaddleCountourLine(newContourConstraints, s.gridSize, upperNodes=np.array(upperNodes))
                 plt.waitforbuttonpress(waitTime)
+    def findRootNode(s):
+        for iNode in range(len(s.nodes)):
+            if len(s.node(iNode).downNodes) == 0:
+                s.rootNodeId = iNode
+                break
+        assert s.rootNodeId is not None
+        return
 
 
 
