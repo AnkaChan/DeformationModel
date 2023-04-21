@@ -232,45 +232,70 @@ class LinearAnimation:
                 contourLineEndState = contourLineAtHeight[0]
                 newCountourConstraints = ContourConstraint(s.gridSize)
 
-                allPts = contourLineEndState.allNodes
+                # allPts = contourLineEndState.allNodes
 
-                allPts[:, 0] = 1.4 * allPts[:, 0] / s.gridSize[0] - 0.7
-                allPts[:, 1] = 1.4 * allPts[:, 1] / s.gridSize[1] - 0.7
-                allPts = np.hstack([allPts, np.zeros((allPts.shape[0], 1))])
+                # allPts[:, 0] = 1.4 * allPts[:, 0] / s.gridSize[0] - 0.7
+                # allPts[:, 1] = 1.4 * allPts[:, 1] / s.gridSize[1] - 0.7
+                # allPts = np.hstack([allPts, np.zeros((allPts.shape[0], 1))])
 
-                pd = pv.PolyData(allPts)
-                pd.save("allPts.ply", binary=False)
+                # pd = pv.PolyData(allPts)
+                # pd.save("allPts.ply", binary=False)
 
                 for iContour, contourLine in enumerate(contourLIneConstraints.contourLines):
 
                     if iContour == preservingCountourId:
                         parameterShifts = np.linspace(0,1, s.numRegistrationCandidates,endpoint=False )
                         bestStartNode = None
-                        for iStartNode in range(contourLineEndState.numVertices()):
-                            contourLineEndState.parameterize(iStartNode)
-                            pts=[]
-                            ts = np.linspace(0,1,100)
-                            for t in ts:
-                                pts.append(contourLineEndState.getPosition(t))
-                            pts = np.array(pts)
+                        sourceContourLine = contourLine
+
+                        saddleSourceContourLine = sourceContourLine.getPosition(0)
+
+                        dis = np.linalg.norm(saddleSourceContourLine - contourLineEndState.allNodes, axis=1)
+
+                        # saddle is where the parameterization starts, it should be the point that is closest to the source saddle
+                        bestSaddle  = np.argmin(dis)
+                        contourLineEndState.parameterize(bestSaddle)
+                        # for iStartNode in range(contourLineEndState.numVertices()):
+                        #     contourLineEndState.parameterize(iStartNode)
+                        pts=[]
+                        ts = np.linspace(0,1,100)
+                        for t in ts:
+                            pts.append(contourLineEndState.getPosition(t))
+                        pts = np.array(pts)
                             # plt.plot(pts[:,0], pts[:,1])
                             # plt.show()
 
-                            x = pts[:,0]
-                            y = pts[:,1]
-                            cols =  ts
+                        x = pts[:,0]
+                        y = pts[:,1]
+                        cols =  ts
 
-                            points = np.array([x, y]).T.reshape(-1, 1, 2)
-                            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                        points = np.array([x, y]).T.reshape(-1, 1, 2)
+                        segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-                            fig, ax = plt.subplots()
-                            lc = LineCollection(segments, cmap='viridis')
-                            lc.set_array(cols)
-                            lc.set_linewidth(2)
-                            line = ax.add_collection(lc)
-                            fig.colorbar(line, ax=ax)
+                        fig, ax = plt.subplots()
 
-                            plt.show()
+                        ax.set_xlim([0, s.gridSize[0]])
+                        ax.set_ylim([0, s.gridSize[1]])
+
+                        lc = LineCollection(segments, cmap='viridis')
+                        lc.set_array(cols)
+                        lc.set_linewidth(2)
+                        line = ax.add_collection(lc)
+                        # fig.colorbar(line, ax=ax)
+
+                        # draw the source contourline:
+                        points = np.array([sourceContourLine.allNodes[:,0], sourceContourLine.allNodes[:,1]]).T.reshape(-1, 1, 2)
+                        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                        cols = sourceContourLine.contourLineParameters
+
+                        lc = LineCollection(segments, cmap='viridis')
+                        lc.set_array(cols)
+                        lc.set_linewidth(2)
+                        line = ax.add_collection(lc)
+                        # fig.colorbar(line, ax=ax)
+
+                        plt.show()
+                        plt.waitforbuttonpress()
 
 
                         newContour = s.blendContourLines(contourLine, contourLineEndState)
@@ -311,13 +336,16 @@ class LinearAnimation:
 
         allParameters = []
         correspondence = [] # 0: from tree0, 1: from tree:1, from both trees
+
+        contourLineParameters0 = np.sort(contourline0.contourLineParameters)
+        contourLineParameters1 = np.sort(contourline1.contourLineParameters)
         while i0 < contourline0.numVertices() and i1 < contourline1.numVertices():
-            if contourline0.contourLineParameters[i0] == contourline0.contourLineParameters[i0]:
+            if contourLineParameters0[i0] == contourLineParameters1[i1]:
                 correspondence.append(2)
                 allParameters.append(contourline0.contourLineParameters[i0])
                 i0 = i0 +1
                 i1 = i1 +1
-            elif contourline0.contourLineParameters[i0] == contourline0.contourLineParameters[i0]:
+            elif contourLineParameters0[i0] < contourLineParameters1[i1]:
                 correspondence.append(0)
                 allParameters.append(contourline0.contourLineParameters[i0])
                 i0 = i0 +1
@@ -611,13 +639,40 @@ class LinearAnimation:
 
             if node.type == "preserving":
                 # interpolate
+                node.position = (1-t) * s.tree0.node(node.tree0Corr).position + t * s.tree1.node( node.tree1Corr).position
+                node.scalar = (1-t) * s.tree0.node(node.tree0Corr).scalar + t * s.tree1.node( node.tree1Corr).scalar
                 pass
 
-            # elif node.type == ""
+            elif node.type == "vanishing":
+                tree0Node = s.tree0.node(node.tree0Corr)
+                tree0Parent = s.tree0.node(tree0Node.downNodes[0])
 
+                initialTransitionToParent = tree0Node.position - tree0Parent.position
+                node.position = (1 - t) * initialTransitionToParent + s.intermediateTree.node(node.downNodes[0]).position
 
-    def computeRegisterationDis(s, contourLine1, contourLine2):
+                initialScalarChangeToParent = tree0Node.scalar - tree0Parent.scalar
+                node.scalar = (1 - t) * initialScalarChangeToParent + s.intermediateTree.node(node.downNodes[0]).scalar
 
-        for iVert in range(len(contourLine1.numVertices())):
-            # p1 =
+                if node.criticalType == s.intermediateTree.saddleTypeId:
+                    pass
+                else:
+                    pass
+                pass
+            elif node.type == "emerging":
+                if node.criticalType == s.intermediateTree.saddleTypeId:
+                    pass
+                pass
+
+            nodeQueue.pop(0)
+            nodeQueue.extend(node.upNodes)
+
+    def interpolateContourLine(s, inContourLine, saddlePosition):
+        if inContourLine.type == "emerging":
             pass
+        elif inContourLine.type == "vanishing":
+            initialContourLine = inContourLine.startState
+            intialContourlineSaddlePos = inContourLine.getPosition(0)
+            for t in inContourLine.contourLineParameters:
+
+
+

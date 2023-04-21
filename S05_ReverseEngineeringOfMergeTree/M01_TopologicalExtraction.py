@@ -13,6 +13,7 @@ import vtk
 
 from qpsolvers import solve_qp, available_solvers
 from scipy import sparse
+from matplotlib.collections import LineCollection
 
 from shapely.geometry.polygon import Polygon, Point
 print('Avaliable qp solvers: ', available_solvers)
@@ -893,21 +894,39 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
     return contourEdgesReordered, contourWeightsReordered, contourHeightsReordered
 
 def plotSaddleCountourLine(newContourConstraints, gridSize, upperNodes=None):
-    plt.figure()
-    plt.ylim(0, gridSize[1])
-    plt.xlim(0, gridSize[0])
+    # plt.figure()
+    # plt.ylim(0, gridSize[1])
+    # plt.xlim(0, gridSize[0])
     assert newContourConstraints.numContours() == 2
 
     colors = ['r', 'g', ]
+    cmaps = ['viridis', 'jet', ]
+    fig, ax = plt.subplots()
+
+    ax.set_xlim([0, gridSize[0]])
+    ax.set_ylim([0, gridSize[1]])
+
     for iContour in range(newContourConstraints.numContours()):
         allPts = newContourConstraints.getAllNodes(iContour)
 
         allPts = np.vstack([allPts, allPts[:1, :]])
 
-        if upperNodes is not None:
-            plt.scatter(upperNodes[iContour, 0], upperNodes[iContour,1], marker ="*", color = colors[iContour])
-        plt.plot(allPts[:, 0], allPts[:, 1], color = colors[iContour])
+        points = np.array([allPts[:,0], allPts[:,1],]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+        cols = newContourConstraints.getContour(iContour).contourLineParameters
 
+        if upperNodes is not None:
+            ax.scatter(upperNodes[iContour, 0], upperNodes[iContour,1], marker ="*", color = colors[iContour])
+        # plt.plot(allPts[:, 0], allPts[:, 1], color = colors[iContour])
+
+
+        lc = LineCollection(segments, cmap=cmaps[iContour])
+        lc.set_array(cols)
+        lc.set_linewidth(2)
+        line = ax.add_collection(lc)
+        fig.colorbar(line, ax=ax)
+
+    plt.show()
 
 def writeOBj(outObj, X, Y, Z, gridSize):
     '''
