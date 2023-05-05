@@ -71,6 +71,7 @@ class ContourLine:
         s.embracingHigherNodeId = None
         s.contourLineParameters = []
         s.shapelyGeometry = None
+        s.relativeTranslations = None
 
         s.gridSize = gridSize
 
@@ -83,6 +84,42 @@ class ContourLine:
         s.endState = None
 
         s.type = None
+
+    def computeRelativeTranslation(s):
+        # contour line always start and end with saddle
+        s.relativeTranslations = []
+
+        saddlePoint = s.allNodes[0]
+        for iNdoe in range(len(s.allNodes)):
+            diff = s.allNodes[iNdoe] - saddlePoint
+            s.relativeTranslations.append(diff)
+
+    def getRelativeTranslation(s, t):
+        ts = s.contourLineParameters
+
+        if t >= 1:
+            t = t-1
+
+        diffa = ts - t
+        diffa[diffa >0] = -2
+        a = np.argmax(diffa)
+
+        diffb = ts - t
+        diffb[diffb <0] = 2
+        b = np.argmin(diffb)
+        # a = np.max(np.where(t >= ts))
+        # b = np.min(np.where(t <= ts))
+
+        if b is None:
+            b = a
+        if a == b:
+            return s.getNode(a)
+        # assert a == b - 1
+        controlPoints = s.relativeTranslations
+        w = (t - ts[a]) / (ts[b] - ts[a])
+
+        return controlPoints[a] * (1-w) + controlPoints[b] * w
+
 
     def numVertices(s):
         return len(s.saddleAllContourEdges)

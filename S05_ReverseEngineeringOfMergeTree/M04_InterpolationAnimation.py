@@ -666,13 +666,22 @@ class LinearAnimation:
             nodeQueue.pop(0)
             nodeQueue.extend(node.upNodes)
 
-    def interpolateContourLine(s, inContourLine, saddlePosition):
+    def interpolateContourLine(s, inContourLine, saddlePosition, t):
+        initialContourLine = inContourLine.startState
+
+        if initialContourLine.relativeTranslations is None:
+            initialContourLine.computeRelativeTranslation()
+
         if inContourLine.type == "emerging":
             pass
         elif inContourLine.type == "vanishing":
-            initialContourLine = inContourLine.startState
-            intialContourlineSaddlePos = inContourLine.getPosition(0)
-            for t in inContourLine.contourLineParameters:
+            for ss in inContourLine.contourLineParameters:
+                translationInitial = initialContourLine.getRelativeTranslation(ss)
 
+                translationIntepolated = translationInitial * (1-t)
+
+                inContourLine.allNodes[0] = translationIntepolated + saddlePosition
+        elif inContourLine.type == "vanishing":
+            pass
 
 
