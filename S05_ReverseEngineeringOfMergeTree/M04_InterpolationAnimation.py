@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 
 from M01_TopologicalExtraction import *
@@ -52,6 +53,10 @@ class LinearAnimation:
         # totally
         s.numNodesInterTree = s.numSharedVerts + s.numUniqueVertsTree0 + s.numUniqueVertsTree1
 
+        s.fig, s.ax = plt.subplots()
+        s.ax.set_xlim([0, s.gridSize[0]])
+        s.ax.set_ylim([0, s.gridSize[1]])
+
         # generate nodes
         nodes = []
 
@@ -94,7 +99,6 @@ class LinearAnimation:
 
         # tree1 edges
         for iTree1Edge in range(tree1.numEdges()):
-            edge = Edge()
 
             # newEdge.id = iEdge
             # newEdge.segmentId = edgesData["SegmentationId"][iEdge]
@@ -111,28 +115,39 @@ class LinearAnimation:
             # downNode = s.nodes[newEdge.downNode]
             # downNode.upNodes.append(edgesData[actualUp + "NodeId"][iEdge])
             # downNode.upEdges.append(iEdge)
-
             tree1Edge = tree1.edges[iTree1Edge]
-
-            edge.id = len(edges)
-            edge.segmentId = -1
-            edge.segmentIdTree1 = tree1Edge.segmentId
-            # edge.segmentIdTree0 = # upNode's tree0Corr's down edge
             upNodeTree1 = tree1Edge.upNode
 
-            edge.upNode = s.tree1ToIntermediateTree[upNodeTree1]
-            edge.downNode = s.tree1ToIntermediateTree[tree1Edge.downNode]
-            edge.nodes = [edge.upNode, edge.downNode]
+            edgeNodeIds = (
+                s.tree1ToIntermediateTree[tree1Edge.downNode],
+                s.tree1ToIntermediateTree[upNodeTree1]
+            )
+            corrItermediateTree = s.findEdge(edges, edgeNodeIds)
 
-            upNode = nodes[edge.upNode]
-            upNode.downEdges.append(edge.id)
-            upNode.downNodes.append(edge.downNode)
+            if corrItermediateTree == -1:
+                edge = Edge()
 
-            downNode = nodes[edge.downNode]
-            downNode.upNodes.append(edge.upNode)
-            downNode.upEdges.append(edge.id)
+                edge.id = len(edges)
+                edge.segmentId = -1
+                edge.segmentIdTree1 = tree1Edge.segmentId
+                # edge.segmentIdTree0 = # upNode's tree0Corr's down edge
 
-            edges.append(edge)
+                edge.upNode = s.tree1ToIntermediateTree[upNodeTree1]
+                edge.downNode = s.tree1ToIntermediateTree[tree1Edge.downNode]
+                edge.nodes = [edge.upNode, edge.downNode]
+
+                upNode = nodes[edge.upNode]
+                upNode.downEdges.append(edge.id)
+                upNode.downNodes.append(edge.downNode)
+
+                downNode = nodes[edge.downNode]
+                downNode.upNodes.append(edge.upNode)
+                downNode.upEdges.append(edge.id)
+
+                edges.append(edge)
+            else:
+                edges[corrItermediateTree].segmentIdTree1 = tree1Edge.segmentId
+
 
         s.intermediateTree.initFrom(nodes, edges)
 
@@ -163,6 +178,8 @@ class LinearAnimation:
                 continue
 
             newCountourConstraints = ContourConstraint(s.gridSize)
+
+            intermediateSaddle = s.intermediateTree.node(iNode)
 
             # process contour for saddle saddle
             if s.intermediateTree.node(iNode).tree0Corr != -1 and s.intermediateTree.node(iNode).tree1Corr != -1:
@@ -220,6 +237,13 @@ class LinearAnimation:
                         preservingCountourId = iContour
                         preservingUpNode = upNode
 
+                if preservingCountourId != -1:
+                    intermediateSaddle.emergeVanishType = "partial"
+                    intermediateSaddle.preservingContourId = preservingCountourId
+                else:
+                    intermediateSaddle.emergeVanishType = "complete"
+                    continue
+
                 # then we have to construct the end state of that contour line, but exacting the level set at height saddleTree0.scalar
                 # and includes the upNode
 
@@ -241,6 +265,9 @@ class LinearAnimation:
                 # pd = pv.PolyData(allPts)
                 # pd.save("allPts.ply", binary=False)
 
+                newCountourConstraints.addContour(None)
+                newCountourConstraints.addContour(None)
+
                 for iContour, contourLine in enumerate(contourLIneConstraints.contourLines):
 
                     if iContour == preservingCountourId:
@@ -254,7 +281,7 @@ class LinearAnimation:
 
                         # saddle is where the parameterization starts, it should be the point that is closest to the source saddle
                         bestSaddle  = np.argmin(dis)
-                        contourLineEndState.parameterize(bestSaddle)
+                        contourLineEndState.parameterize(bestSaddle, repermute=True)
                         # for iStartNode in range(contourLineEndState.numVertices()):
                         #     contourLineEndState.parameterize(iStartNode)
                         pts=[]
@@ -272,30 +299,30 @@ class LinearAnimation:
                         points = np.array([x, y]).T.reshape(-1, 1, 2)
                         segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
-                        fig, ax = plt.subplots()
-
-                        ax.set_xlim([0, s.gridSize[0]])
-                        ax.set_ylim([0, s.gridSize[1]])
-
-                        lc = LineCollection(segments, cmap='viridis')
-                        lc.set_array(cols)
-                        lc.set_linewidth(2)
-                        line = ax.add_collection(lc)
-                        # fig.colorbar(line, ax=ax)
-
-                        # draw the source contourline:
-                        points = np.array([sourceContourLine.allNodes[:,0], sourceContourLine.allNodes[:,1]]).T.reshape(-1, 1, 2)
-                        segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                        cols = sourceContourLine.contourLineParameters
-
-                        lc = LineCollection(segments, cmap='viridis')
-                        lc.set_array(cols)
-                        lc.set_linewidth(2)
-                        line = ax.add_collection(lc)
-                        # fig.colorbar(line, ax=ax)
-
-                        plt.show()
-                        plt.waitforbuttonpress()
+                        # fig, ax = plt.subplots()
+                        #
+                        # ax.set_xlim([0, s.gridSize[0]])
+                        # ax.set_ylim([0, s.gridSize[1]])
+                        #
+                        # lc = LineCollection(segments, cmap='viridis')
+                        # lc.set_array(cols)
+                        # lc.set_linewidth(2)
+                        # line = ax.add_collection(lc)
+                        # # fig.colorbar(line, ax=ax)
+                        #
+                        # # draw the source contourline:
+                        # points = np.array([sourceContourLine.allNodes[:,0], sourceContourLine.allNodes[:,1]]).T.reshape(-1, 1, 2)
+                        # segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                        # cols = sourceContourLine.contourLineParameters
+                        #
+                        # lc = LineCollection(segments, cmap='viridis')
+                        # lc.set_array(cols)
+                        # lc.set_linewidth(2)
+                        # line = ax.add_collection(lc)
+                        # # fig.colorbar(line, ax=ax)
+                        #
+                        # plt.show()
+                        # plt.waitforbuttonpress()
 
 
                         newContour = s.blendContourLines(contourLine, contourLineEndState)
@@ -310,7 +337,7 @@ class LinearAnimation:
 
                         newContour.type = "vanishing"
 
-                    newCountourConstraints.addContour(newContour)
+                    newCountourConstraints.contourLines[iContour] = newContour
                 s.intermediateTree.saddleContours[iNode] = newCountourConstraints
 
             elif s.intermediateTree.node(iNode).tree1Corr != -1:
@@ -639,49 +666,166 @@ class LinearAnimation:
 
             if node.type == "preserving":
                 # interpolate
-                node.position = (1-t) * s.tree0.node(node.tree0Corr).position + t * s.tree1.node( node.tree1Corr).position
+                node.posInField = (1-t) * s.tree0.node(node.tree0Corr).posInField + t * s.tree1.node( node.tree1Corr).posInField
                 node.scalar = (1-t) * s.tree0.node(node.tree0Corr).scalar + t * s.tree1.node( node.tree1Corr).scalar
-                pass
 
+                if node.criticalType == s.intermediateTree.saddleTypeId:
+                    contourLineConstraints = s.intermediateTree.saddleContours[nodeId]
+
+                    for iContour in range(contourLineConstraints.numContours()):
+                        s.interpolateContourLine( contourLineConstraints.getContour(iContour), node.posInField , t)
+
+                    s.intermediateTree.saddleContours[nodeId] = contourLineConstraints
             elif node.type == "vanishing":
                 tree0Node = s.tree0.node(node.tree0Corr)
                 tree0Parent = s.tree0.node(tree0Node.downNodes[0])
 
-                initialTransitionToParent = tree0Node.position - tree0Parent.position
-                node.position = (1 - t) * initialTransitionToParent + s.intermediateTree.node(node.downNodes[0]).position
-
                 initialScalarChangeToParent = tree0Node.scalar - tree0Parent.scalar
                 node.scalar = (1 - t) * initialScalarChangeToParent + s.intermediateTree.node(node.downNodes[0]).scalar
+                initialTransitionToParent = tree0Node.posInField - tree0Parent.posInField
+
+                node.posInField = (1 - t) * initialTransitionToParent + s.intermediateTree.node(
+                    node.downNodes[0]).posInField
+
+                if node.criticalType == s.intermediateTree.saddleTypeId:
+                    contourLineConstraints = s.intermediateTree.saddleContours[nodeId]
+                    if node.emergeVanishType == "partial":
+
+                        contourlineInitial = contourLineConstraints.getContour(node.preservingContourId).startState
+                        contourlineFinal = contourLineConstraints.getContour(node.preservingContourId).endState
+                        node.posInField = (1-t) * contourlineInitial.getSaddle() + t * contourlineFinal.getSaddle()
+                    else:
+                        # completely vanishing
+                        # saddle shrink to parent
+                        node.posInField = (1 - t) * initialTransitionToParent + s.intermediateTree.node(
+                            node.downNodes[0]).posInField
+
+                    for iContour in range(contourLineConstraints.numContours()):
+                        s.interpolateContourLine( contourLineConstraints.getContour(iContour), node.posInField , t)
+                    # else:
+                    s.intermediateTree.saddleContours[nodeId] = contourLineConstraints
+
+                pass
+            elif node.type == "emerging":
 
                 if node.criticalType == s.intermediateTree.saddleTypeId:
                     pass
-                else:
-                    pass
                 pass
-            elif node.type == "emerging":
-                if node.criticalType == s.intermediateTree.saddleTypeId:
-                    pass
-                pass
+
+            # if node.criticalType == s.intermediateTree.saddleTypeId:
+            #
+            #     contourLineConstraints = s.intermediateTree.saddleContours[nodeId]
+            #     for iContour in range(contourLineConstraints.numContours()):
+            #         allPts = contourLineConstraints.getContour(iContour).getAllNodes()
+            #         allPts = np.vstack([allPts, allPts[:1, :]])
+            #         s.ax.plot(allPts[:, 0], allPts[:, 1], color='g')
 
             nodeQueue.pop(0)
             nodeQueue.extend(node.upNodes)
 
+
     def interpolateContourLine(s, inContourLine, saddlePosition, t):
         initialContourLine = inContourLine.startState
+        finalContourLine = inContourLine.endState
 
-        if initialContourLine.relativeTranslations is None:
-            initialContourLine.computeRelativeTranslation()
+        if initialContourLine is not None:
+            if initialContourLine.relativeTranslations is None:
+                initialContourLine.computeRelativeTranslation()
+
+        if finalContourLine is not None:
+            if finalContourLine.relativeTranslations is None:
+                finalContourLine.computeRelativeTranslation()
 
         if inContourLine.type == "emerging":
             pass
         elif inContourLine.type == "vanishing":
-            for ss in inContourLine.contourLineParameters:
+            inContourLine.allNodes = []
+            for iNode, ss in enumerate(inContourLine.contourLineParameters):
                 translationInitial = initialContourLine.getRelativeTranslation(ss)
 
                 translationIntepolated = translationInitial * (1-t)
 
-                inContourLine.allNodes[0] = translationIntepolated + saddlePosition
-        elif inContourLine.type == "vanishing":
-            pass
+                inContourLine.allNodes.append(translationIntepolated + saddlePosition)
+
+        elif inContourLine.type == "preserving":
+            inContourLine.allNodes = []
+            for iNode, ss in enumerate(inContourLine.contourLineParameters):
+                 inContourLine.allNodes.append((1-t) * initialContourLine.getPosition(ss) + t * finalContourLine.getPosition(ss))
+        inContourLine.allNodes = np.array( inContourLine.allNodes)
+
+        # fig, ax = plt.subplots()
+        # ax.set_xlim([0, s.gridSize[0]])
+        # ax.set_ylim([0, s.gridSize[1]])
+        #
+        # colors = {
+        #     "vanishing": 'r',
+        #     "preserving": 'g',
+        #     "emerging": 'y',
+        # }
+        # allPts = inContourLine.getAllNodes()
+        #
+        # allPts = np.vstack([allPts, allPts[:1, :]])
+        # ax.plot(allPts[:, 0], allPts[:, 1], color='g')
+        #
+        # if initialContourLine is not None:
+        #     allPts = initialContourLine.getAllNodes()
+        #
+        #     allPts = np.vstack([allPts, allPts[:1, :]])
+        #     ax.plot(allPts[:, 0], allPts[:, 1], color='y')
+        # if finalContourLine is not None:
+        #     allPts = finalContourLine.getAllNodes()
+        #
+        #     allPts = np.vstack([allPts, allPts[:1, :]])
+        #     ax.plot(allPts[:, 0], allPts[:, 1], color='r')
+        #
+        # ax.scatter(saddlePosition[0].item(), saddlePosition[1].item())
+        #
+        # plt.waitforbuttonpress()
+
+    # edgeNodeIds: (downNodeId, upNodeId)
+    def findEdge(s, edges, edgeNodeIds):
+        for iEdge in range(len(edges)):
+            if edges[iEdge].upNode == edgeNodeIds[1] and edges[iEdge].upNode == edgeNodeIds[1]:
+                return iEdge
+        return -1
+
+    def plotIntermediateTree(s, fig, ax):
+        ax.set_xlim([0, s.gridSize[0]])
+        ax.set_ylim([0, s.gridSize[1]])
+
+
+
+        for iSaddle, contourLineConstraint in s.intermediateTree.saddleContours.items():
+            cmaps = ['viridis', 'jet', ]
+            colors = {
+                "vanishing": 'r',
+                "preserving": 'g',
+                "emerging": 'y',
+            }
+            for iContour in range(contourLineConstraint.numContours()):
+                allPts = contourLineConstraint.getContour(iContour).getAllNodes()
+
+                allPts = np.vstack([allPts, allPts[:1, :]])
+                ax.plot(allPts[:, 0], allPts[:, 1], color=colors[contourLineConstraint.getContour(iContour).type])
+
+                # points = np.array([allPts[:, 0], allPts[:, 1], ]).T.reshape(-1, 1, 2)
+                # segments = np.concatenate([points[:-1], points[1:]], axis=1)
+                # cols = contourLineConstraint.getContour(iContour).contourLineParameters
+                # lc = LineCollection(segments, cmap='viridis')
+                # lc.set_array(cols)
+                # lc.set_linewidth(2)
+                # line = ax.add_collection(lc)
+                # fig.colorbar(line, ax=ax)
+
+        for iNode in range(s.intermediateTree.numNodes()):
+            node = s.intermediateTree.node(iNode)
+            if len(node.downNodes) !=0:
+
+                for upNode in node.upNodes:
+                    upNodePos = s.intermediateTree.node(upNode).posInField
+                    ax.plot([node.posInField[0], upNodePos[0]], [node.posInField[1], upNodePos[1]], color='black',linewidth=-0.1 )
+                ax.scatter(node.posInField[0], node.posInField[1], )
+
+
 
 
