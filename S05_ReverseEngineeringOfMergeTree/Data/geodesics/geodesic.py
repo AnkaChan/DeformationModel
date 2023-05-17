@@ -128,6 +128,7 @@ tTKMergeTreeClustering1.ComputeBarycenter = 1
 # change this parameter to change the position of the interpolated tree
 # change to 1 to retrieve the final position of all nodes (including destroyed
 # nodes)
+# t = 0.60
 tTKMergeTreeClustering1.Alpha = t
 tTKMergeTreeClustering1.DimensionToshift = 'Z'
 tTKMergeTreeClustering1.Barycenterpositionaccordingtoalpha = 1
@@ -149,8 +150,28 @@ extractBlock4.Selectors = ['/Root/Block1']
 extractBlock3 = ExtractBlock(registrationName='ExtractBlock3', Input=OutputPort(tTKMergeTreeClustering1_2,2))
 extractBlock3.Selectors = ['/Root/Block0']
 
-SaveData(output_dir + "pointData/tree1ToInterpolated_" + str(int(t*100)) + ".csv", extractBlock3, FieldAssociation='Point Data')
-SaveData(output_dir + "pointData/interpolatedTotree2_" + str(int(t*100)) + ".csv", extractBlock4, FieldAssociation='Point Data')
+# save matchings
+SaveData(output_dir + "matchings/tree1ToInterpolated_" + str(int(t*100)) + ".csv", extractBlock3)
+SaveData(output_dir + "matchings/interpolatedTotree2_" + str(int(t*100)) + ".csv", extractBlock4)
+
+# get the intermediate tree data
+tTKMergeTreeClustering1 = FindSource('TTKMergeTreeClustering1')
+SetActiveSource(tTKMergeTreeClustering1)
+intermediateTree = GetActiveSource()
+SaveData(output_dir + 'intermediateTree/intermediateTree_' + str(int(t*100)) + ".csv", proxy=OutputPort(intermediateTree, 1),
+    PointDataArrays=['BranchNodeID', 'ClusterID', 'CriticalType', 'NodeId', 'PercentMatchNode', 'Persistence', 'Scalar', 'TreeID', 'VertexId', 'isDummyNode', 'isImportantPair'],
+    CellDataArrays=['BranchID', 'ClusterID', 'PercentMatchArc', 'Persistence', 'TreeID', 'downNodeId', 'isDummyArc', 'isImportantPair', 'upNodeId'],
+    FieldDataArrays=['ClusterAssignment'],
+    AddMetaData=0)
+SaveData(output_dir +'intermediateTree/intermediateTreeEdge_' + str(int(t*100)) + ".csv", proxy=OutputPort(intermediateTree, 1),
+    PointDataArrays=['BranchNodeID', 'ClusterID', 'CriticalType', 'NodeId', 'PercentMatchNode', 'Persistence', 'Scalar', 'TreeID', 'VertexId', 'isDummyNode', 'isImportantPair'],
+    CellDataArrays=['BranchID', 'ClusterID', 'PercentMatchArc', 'Persistence', 'TreeID', 'downNodeId', 'isDummyArc', 'isImportantPair', 'upNodeId'],
+    FieldDataArrays=['ClusterAssignment'],
+    FieldAssociation='Cell Data')
+
+
+
+
 
 # create a new 'Extract Block'
 # extractBlock2 = ExtractBlock(registrationName='ExtractBlock2', Input=OutputPort(tTKMergeTreeClustering1_2, 0))
