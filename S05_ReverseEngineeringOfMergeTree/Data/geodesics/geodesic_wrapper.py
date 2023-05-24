@@ -5,6 +5,6 @@ if __name__ == "__main__":
         t = i / 100
         print(t)
 
-        submitCommand = "pvpython Data/geodesics/geodesic.py " + str(t)
+        submitCommand = "pvpython geodesic_other.py " + str(t)
         print(submitCommand)
         os.system(submitCommand)
