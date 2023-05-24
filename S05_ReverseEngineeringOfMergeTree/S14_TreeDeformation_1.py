@@ -1,5 +1,8 @@
 import glob
 import csv
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from M01_TopologicalExtraction import *
@@ -50,6 +53,8 @@ def getIntermediateTreeNodeHeight(tree0, tree1, treeToTreeCorrespondence, nSteps
 if __name__ == '__main__':
     # inDeformDataFolder = r'.\Data\geodesics\JulienExample\animation'
     inDeformDataFolder = r'.\Data\geodesics\JulienExample\pointData'
+    outFolder = r'./Data/' + os.path.basename(__file__)
+    os.makedirs(outFolder, exist_ok=True)
 
     nameToTree2s = "tree1ToInterpolated"
     deformationDataFileToTree2s = glob.glob(join(inDeformDataFolder, nameToTree2s + "*.csv"))
@@ -94,6 +99,18 @@ if __name__ == '__main__':
     intermediateTreeNodeHeight = getIntermediateTreeNodeHeight(tree0, tree1, treeToTreeCorrespondence,  nSteps = 100)
 
     animation = LinearAnimation(tree0, tree1, correspondences=treeToTreeCorrespondence, intermediateTreeHeights=intermediateTreeNodeHeight)
+
+
+    for i, t in enumerate(np.linspace(0.01, 0.99, 99, endpoint=True)):
+    # for t in np.linspace(0.5, 0.99, 99, endpoint=True):
+        print("t:", t)
+        animation.interpolateAnimation(t)
+        plt.close('all')
+        fig, ax = plt.subplots()
+
+        animation.plotIntermediateTree(fig, ax)
+        # fig.waitforbuttonpress(timeout=-1)
+        fig.savefig(join(outFolder, "A" + str(i).zfill(5) + ".png"), dpi = 300)
 
     print(animation)
 

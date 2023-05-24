@@ -48,7 +48,13 @@ class TreeNode:
         s.tree0Corr = -1
         s.tree1Corr = -1
 
+        #
         s.type = None
+        # saddle point only, value can be partial or complete
+        # partial: one contourline is preserved
+        # complete: no contourlien is preserved
+        s.emergeVanishType = None
+        s.preservingContourId = None
 
 class Edge:
     def __init__(s,):
@@ -93,6 +99,7 @@ class ContourLine:
         for iNdoe in range(len(s.allNodes)):
             diff = s.allNodes[iNdoe] - saddlePoint
             s.relativeTranslations.append(diff)
+        s.relativeTranslations = np.array(s.relativeTranslations)
 
     def getRelativeTranslation(s, t):
         ts = s.contourLineParameters
@@ -113,13 +120,15 @@ class ContourLine:
         if b is None:
             b = a
         if a == b:
-            return s.getNode(a)
+            return s.relativeTranslations[a]
         # assert a == b - 1
         controlPoints = s.relativeTranslations
         w = (t - ts[a]) / (ts[b] - ts[a])
 
         return controlPoints[a] * (1-w) + controlPoints[b] * w
 
+    def getSaddle(s):
+        return s.allNodes[0]
 
     def numVertices(s):
         return len(s.saddleAllContourEdges)
@@ -181,7 +190,7 @@ class ContourLine:
         else:
             return False
 
-    def parameterize(s, parameterStartNodeId=0):
+    def parameterize(s, parameterStartNodeId=0, repermute=False):
         totalLength = 0
         s.contourLineParameters = np.zeros((s.numVertices(),))
         for iVert in range(s.numVertices()-1):
@@ -196,14 +205,19 @@ class ContourLine:
         totalLength += np.linalg.norm(s.getEdge(s.numVertices()-1))
         s.contourLineParameters = s.contourLineParameters/totalLength
 
-        # if parameterStartNodeId != 0:
-        #     # sort the nodes to make sure their parameters are ascending
-        #     sortedId = np.argsort(s.contourLineParameters)
-        #     s.contourLineParameters = s.contourLineParameters[sortedId]
-        #     s.saddleAllContourEdges = s.saddleAllContourEdges[sortedId]
-        #     s.saddleAllContourWeights = s.saddleAllContourWeights[sortedId]
-        #     s.saddleAllContourHeights = s.saddleAllContourHeights[sortedId]
-        #     s.embracingHigherNodeId = s.embracingHigherNodeId[sortedId]
+        if parameterStartNodeId != 0 and repermute:
+            # sort the nodes to make sure their parameters are ascending
+            sortedId = np.argsort(s.contourLineParameters)
+            s.contourLineParameters = s.contourLineParameters[sortedId]
+            s.saddleAllContourEdges = [s.saddleAllContourEdges[id] for id in sortedId]
+            s.saddleAllContourWeights = [s.saddleAllContourWeights[id] for id in sortedId]
+            s.saddleAllContourHeights =[s.saddleAllContourHeights[id] for id in sortedId]
+
+            # s.saddleAllContourEdges = s.saddleAllContourEdges[sortedId]
+            # s.saddleAllContourWeights = s.saddleAllContourWeights[sortedId]
+            # s.saddleAllContourHeights = s.saddleAllContourHeights[sortedId]
+            # s.embracingHigherNodeId = s.embracingHigherNodeId[sortedId]
+            s.initializeAllNodes()
 
     def getPosition(s, t):
         ts = s.contourLineParameters
@@ -438,6 +452,7 @@ class Tree:
     def initFrom(s, nodes, edges):
         s.edges = edges
         s.nodes = nodes
+
 
 
     def load(s, nodeFile, edgeFile, segmentationFile, gridSize=None, splitTree=False, segmentationDataScalarName="Height"):
