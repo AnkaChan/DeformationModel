@@ -13,7 +13,7 @@ from M04_InterpolationAnimation import *
 def getIntermediateTreeNodeHeight(tree0, tree1, treeToTreeCorrespondence, nSteps = 100):
     h0 = np.zeros(tree0.numNodes())
 
-    heights = np.zeros((tree0.numNodes(), nSteps))
+    heights = np.zeros((tree0.numNodes(), nSteps), dtype=np.float)
 
     for iNode in range(tree0.numNodes()):
         assert tree0.node(iNode).id == iNode
@@ -104,11 +104,14 @@ if __name__ == '__main__':
     for i, t in enumerate(np.linspace(0.01, 0.99, 99, endpoint=True)):
     # for t in np.linspace(0.5, 0.99, 99, endpoint=True):
         print("t:", t)
-        animation.interpolateAnimation(t)
+        animation.interpolateAnimation(t, )
         plt.close('all')
         fig, ax = plt.subplots()
 
+        animation.saveIntermediateTree(join(outFolder, "A" + str(i).zfill(5) + ".json"))
+
         animation.plotIntermediateTree(fig, ax)
+        # plt.show()
         # fig.waitforbuttonpress(timeout=-1)
         fig.savefig(join(outFolder, "A" + str(i).zfill(5) + ".png"), dpi = 300)
 

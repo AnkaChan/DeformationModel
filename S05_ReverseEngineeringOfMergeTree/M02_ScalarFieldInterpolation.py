@@ -89,3 +89,48 @@ def interpolateScalarField(gridSize, P, equalityConstraintIds, equalityConstrain
 
     return Z
 
+def generateLaplacianMat(gridSize):
+    numVariables = gridSize[0] * gridSize[1]
+    # A = np.zeros((numVariables, numVariables,), dtype=np.float32)
+    A = np.zeros((numVariables, numVariables, ), dtype=np.float64)
+
+    for i, j in itertools.product(range(1, gridSize[0]-1), range(1, gridSize[1]-1)):
+        # y direction second derivatives
+        id_ij = flatten2DIndex(i, j, gridSize)
+        id_im1j = flatten2DIndex(i - 1, j, gridSize)
+        id_ip1j = flatten2DIndex(i + 1, j, gridSize)
+
+        A[id_ij, id_ij] += 4
+        A[id_im1j, id_im1j] += 1
+        A[id_ip1j, id_ip1j] += 1
+
+        A[id_ij, id_ip1j] += -2
+        A[id_ip1j, id_ij] += -2
+
+        A[id_ij, id_im1j] += -2
+        A[id_im1j, id_ij] += -2
+
+        A[id_ip1j, id_im1j] += 1
+        A[id_im1j, id_ip1j] += 1
+
+        # x direction second derivatives
+        id_ijm1 = flatten2DIndex(i, j - 1, gridSize)
+        id_ijp1 = flatten2DIndex(i, j + 1, gridSize)
+
+        A[id_ij, id_ij] += 4
+        A[id_ijm1, id_ijm1] += 1
+        A[id_ijp1, id_ijp1] += 1
+
+        A[id_ij, id_ijp1] += -2
+        A[id_ijp1, id_ij] += -2
+
+        A[id_ij, id_ijm1] += -2
+        A[id_ijm1, id_ij] += -2
+
+        A[id_ijp1, id_ijm1] += 1
+        A[id_ijm1, id_ijp1] += 1
+
+    print("number of non-zero elements in A: ", len(np.where(A)[0]), " of ", A.shape[0] * A.shape[1])
+
+    A = sparse.csc_matrix(A)
+    return A

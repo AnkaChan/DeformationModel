@@ -1,3 +1,5 @@
+import json
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -170,6 +172,7 @@ class LinearAnimation:
             #     s.intermediateTree.node(iNode).type = "preserving"
 
             # if such a node is a saddle node in either tree0 or tree1 we treat it as a saddle
+            s.intermediateTree.node(iNode).heights = intermediateTreeHeights[iNode]
             if s.getTree0CorrespondingNode(iNode).criticalType == s.intermediateTree.saddleTypeId or\
                 s.getTree1CorrespondingNode(iNode).criticalType == s.intermediateTree.saddleTypeId:
                 s.intermediateTree.node(iNode).criticalType = s.intermediateTree.saddleTypeId
@@ -369,17 +372,17 @@ class LinearAnimation:
         while i0 < contourline0.numVertices() and i1 < contourline1.numVertices():
             if contourLineParameters0[i0] == contourLineParameters1[i1]:
                 correspondence.append(2)
-                allParameters.append(contourline0.contourLineParameters[i0])
+                allParameters.append(contourLineParameters0[i0])
                 i0 = i0 +1
                 i1 = i1 +1
             elif contourLineParameters0[i0] < contourLineParameters1[i1]:
                 correspondence.append(0)
-                allParameters.append(contourline0.contourLineParameters[i0])
+                allParameters.append(contourLineParameters0[i0])
                 i0 = i0 +1
 
             else:
                 correspondence.append(1)
-                allParameters.append(contourline1.contourLineParameters[i1])
+                allParameters.append(contourLineParameters1[i1])
                 i1 = i1 +1
 
         newContour.contourLineParameters = allParameters
@@ -673,7 +676,7 @@ class LinearAnimation:
                     contourLineConstraints = s.intermediateTree.saddleContours[nodeId]
 
                     for iContour in range(contourLineConstraints.numContours()):
-                        s.interpolateContourLine( contourLineConstraints.getContour(iContour), node.posInField , t)
+                        s.interpolateContourLine( contourLineConstraints.getContour(iContour), node.posInField , t, node.scalar)
 
                     s.intermediateTree.saddleContours[nodeId] = contourLineConstraints
             elif node.type == "vanishing":
@@ -681,11 +684,12 @@ class LinearAnimation:
                 tree0Parent = s.tree0.node(tree0Node.downNodes[0])
 
                 initialScalarChangeToParent = tree0Node.scalar - tree0Parent.scalar
-                node.scalar = (1 - t) * initialScalarChangeToParent + s.intermediateTree.node(node.downNodes[0]).scalar
                 initialTransitionToParent = tree0Node.posInField - tree0Parent.posInField
 
                 node.posInField = (1 - t) * initialTransitionToParent + s.intermediateTree.node(
                     node.downNodes[0]).posInField
+                node.scalar = (1 - t) * initialScalarChangeToParent + s.intermediateTree.node(
+                    node.downNodes[0]).scalar
 
                 if node.criticalType == s.intermediateTree.saddleTypeId:
                     contourLineConstraints = s.intermediateTree.saddleContours[nodeId]
@@ -694,14 +698,17 @@ class LinearAnimation:
                         contourlineInitial = contourLineConstraints.getContour(node.preservingContourId).startState
                         contourlineFinal = contourLineConstraints.getContour(node.preservingContourId).endState
                         node.posInField = (1-t) * contourlineInitial.getSaddle() + t * contourlineFinal.getSaddle()
+                        node.scalar =  (1-t) * node.heights[0] + t * node.heights[-1]
                     else:
                         # completely vanishing
                         # saddle shrink to parent
                         node.posInField = (1 - t) * initialTransitionToParent + s.intermediateTree.node(
                             node.downNodes[0]).posInField
+                        node.scalar = (1 - t) * initialScalarChangeToParent + s.intermediateTree.node(
+                            node.downNodes[0]).scalar
 
                     for iContour in range(contourLineConstraints.numContours()):
-                        s.interpolateContourLine( contourLineConstraints.getContour(iContour), node.posInField , t)
+                        s.interpolateContourLine( contourLineConstraints.getContour(iContour), node.posInField , t, node.scalar)
                     # else:
                     s.intermediateTree.saddleContours[nodeId] = contourLineConstraints
 
@@ -724,9 +731,10 @@ class LinearAnimation:
             nodeQueue.extend(node.upNodes)
 
 
-    def interpolateContourLine(s, inContourLine, saddlePosition, t):
+    def interpolateContourLine(s, inContourLine, saddlePosition, t, scalar):
         initialContourLine = inContourLine.startState
         finalContourLine = inContourLine.endState
+        inContourLine.scalar = scalar
 
         if initialContourLine is not None:
             if initialContourLine.relativeTranslations is None:
@@ -789,11 +797,34 @@ class LinearAnimation:
                 return iEdge
         return -1
 
+
+    def saveIntermediateTree(s, outFile):
+        outData = {
+            "ContourLines":[],
+            "ContourLineHeights":[],
+            "Extremity" : [],
+            "gridSize" : s.gridSize
+        }
+
+        for iSaddle, contourLineConstraint in s.intermediateTree.saddleContours.items():
+            for iContour in range(contourLineConstraint.numContours()):
+                allPts = contourLineConstraint.getContour(iContour).getAllNodes()
+
+                outData["ContourLines"].append(allPts.tolist())
+                outData["ContourLineHeights"].append(float(contourLineConstraint.getContour(iContour).scalar))
+
+        for iNode in range(s.intermediateTree.numNodes()):
+            node = s.intermediateTree.node(iNode)
+
+            if node.criticalType != s.intermediateTree.saddleTypeId and iNode != s.intermediateTree.rootNodeId:
+                outData["Extremity"].append(node.posInField.tolist())
+                outData["Extremity"][-1].append(float(node.scalar))
+
+        json.dump(outData, open(outFile, 'w'))
+
     def plotIntermediateTree(s, fig, ax):
         ax.set_xlim([0, s.gridSize[0]])
         ax.set_ylim([0, s.gridSize[1]])
-
-
 
         for iSaddle, contourLineConstraint in s.intermediateTree.saddleContours.items():
             cmaps = ['viridis', 'jet', ]
@@ -806,7 +837,7 @@ class LinearAnimation:
                 allPts = contourLineConstraint.getContour(iContour).getAllNodes()
 
                 allPts = np.vstack([allPts, allPts[:1, :]])
-                ax.plot(allPts[:, 0], allPts[:, 1], color=colors[contourLineConstraint.getContour(iContour).type])
+                ax.plot(allPts[:, 1], allPts[:, 0], color=colors[contourLineConstraint.getContour(iContour).type])
 
                 # points = np.array([allPts[:, 0], allPts[:, 1], ]).T.reshape(-1, 1, 2)
                 # segments = np.concatenate([points[:-1], points[1:]], axis=1)
@@ -823,8 +854,8 @@ class LinearAnimation:
 
                 for upNode in node.upNodes:
                     upNodePos = s.intermediateTree.node(upNode).posInField
-                    ax.plot([node.posInField[0], upNodePos[0]], [node.posInField[1], upNodePos[1]], color='black',linewidth=-0.1 )
-                ax.scatter(node.posInField[0], node.posInField[1], )
+                    ax.plot([node.posInField[1], upNodePos[1]], [node.posInField[0], upNodePos[0]], color='black',linewidth=-0.1 )
+                ax.scatter(node.posInField[1], node.posInField[0], )
 
 
 

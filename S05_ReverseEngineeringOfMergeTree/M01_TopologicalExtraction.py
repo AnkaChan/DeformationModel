@@ -91,6 +91,8 @@ class ContourLine:
 
         s.type = None
 
+        s.scalar = None
+
     def computeRelativeTranslation(s):
         # contour line always start and end with saddle
         s.relativeTranslations = []
@@ -980,7 +982,7 @@ def plotSaddleCountourLine(newContourConstraints, gridSize, upperNodes=None):
 
     plt.show()
 
-def writeOBj(outObj, X, Y, Z, gridSize):
+def writeOBj(outObj, X, Y, Z, gridSize, ):
     '''
     Write a scalar field to a grid mesh
     '''
@@ -1245,7 +1247,7 @@ def obj2vtkFolder(inObjFolder, inFileExt='obj', outVtkFolder=None, processInterv
         else:
             outName = outVtkFolder + r'\\' + fp.stem + '.vtk'
 
-        mesh.point_arrays['Height'] = mesh.points[:, 2]
+        mesh.point_data['Height'] = mesh.points[:, 2]
 
         mesh.save(outName)
 
