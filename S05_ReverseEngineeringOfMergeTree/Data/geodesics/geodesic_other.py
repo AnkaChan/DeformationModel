@@ -10,10 +10,12 @@ import os
 t = float(sys.argv[1])
 print(t)
 input_dir = "./HeatedFlowY/"
-output_dir = "./HeatedFlowY/data_604_606/"
+output_dir = "./HeatedFlowY/data_600_630/"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
-inputStartFile = "data_604.vti"
-inputEndFile = "data_606.vti"
+inputStartFile = "data_600.vti"
+inputEndFile = "data_630.vti"
 threshold = 0.06
 treeType = "mt"
 scalarField = 'velocityMagnitude'
