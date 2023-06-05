@@ -378,9 +378,14 @@ class Tree:
                 nodesData['Scalar'] = - nodesData['Scalar']
             if segmentationData is not None:
                 segmentationData[segmentationDataScalarName] = -segmentationData[segmentationDataScalarName]
+
+                # scalars = np.array(segmentationData[segmentationDataScalarName])
+                # plt.imshow(scalars.reshape(gridSize))
+                # plt.show()
         else:
             actualUp = "up"
             actualDown = "down"
+
 
         s.nodeToField = []
         s.contourLineHeight = {}  # key (a, b): a: higher segment, b lower segment
@@ -454,8 +459,6 @@ class Tree:
     def initFrom(s, nodes, edges):
         s.edges = edges
         s.nodes = nodes
-
-
 
     def load(s, nodeFile, edgeFile, segmentationFile, gridSize=None, splitTree=False, segmentationDataScalarName="Height"):
         fieldSeg = pv.read(segmentationFile)
