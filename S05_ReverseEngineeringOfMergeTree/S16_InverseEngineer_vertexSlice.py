@@ -22,7 +22,7 @@ if __name__ == '__main__':
                segmentationDataScalarName="speed")
     tree0.saddleTypeId = 1
 
-    tree0.extractContourLineConstraintsNew()
+    tree0.extractContourLineConstraints3()
     # tree0.extractContourLineConstraints()
     tree0.reOrderContourline(False, waitTime=100)
 

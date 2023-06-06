@@ -667,6 +667,146 @@ class Tree:
             if len(s.contourIntersectingEdges) != len(s.contourLineConstraintWeight):
                 break
 
+    def getUnorderedContourLineConstraintsAtHeight(s, saddleId):
+        assert s.nodes[saddleId].criticalType == s.saddleTypeId
+
+        scalarField2D = s.segmentationData[s.segmentationDataScalarName].reshape(s.gridSize)
+
+        allContourEdges = []
+        directionsForEdges = [
+            (1, 0),
+            (0, 1),
+        ]
+
+        height = s.nodes[saddleId].scalar
+
+        for d in directionsForEdges:
+            s1 = scalarField2D[:scalarField2D.shape[0] - d[0], :scalarField2D.shape[1] - d[1]]
+            s2 = scalarField2D[d[0]:, d[1]:]
+
+            contourT1 = np.logical_and(s1 >= height, s2 <= height)
+            contourT2 = np.logical_and(s1 <= height, s2 >= height)
+
+            contourAll = np.logical_or(contourT1, contourT2)
+
+            contouredges2D = np.where(contourAll)
+            contourEdgesV1Flatten = flatten2DIndex(contouredges2D[0], contouredges2D[1], s.gridSize)
+            contourEdgesV2Flatten = flatten2DIndex(contouredges2D[0] + d[0], contouredges2D[1] + d[1], s.gridSize)
+
+            allContourEdges.extend(
+                [(contourEdgesV1Flatten[iE], contourEdgesV2Flatten[iE]) for iE in
+                 range(contourEdgesV1Flatten.shape[0])])
+
+        contourLineConstraintWeight = []
+        contourLineConstraintHeight = []
+        contourLineAllPts = []
+
+        # extract the edges that went through all the height
+        for iContourEdge in range(len(allContourEdges)):
+            edge = allContourEdges[iContourEdge]
+
+            h1 = s.segmentationData[s.segmentationDataScalarName][edge[0]]
+            h2 = s.segmentationData[s.segmentationDataScalarName][edge[1]]
+
+            contourLineConstraintHeight.append(height)
+
+            # check if h1 == h2
+            if h1 == h2:
+                w1 = 0.5
+            else:
+                w1 = (height - h2) / (h1 - h2)
+
+            w2 = 1 - w1
+
+            contourLineConstraintWeight.append((w1, w2))
+
+            pts = np.array(to2DIndex(edge[0], s.gridSize)) * w1 + np.array(to2DIndex(edge[1], s.gridSize)) * w2
+            contourLineAllPts.append(pts)
+
+        # plot
+        # plt.figure()
+        # contourLineAllPts = np.array(contourLineAllPts)
+        # plt.scatter(contourLineAllPts[:,0], contourLineAllPts[:,1])
+        # plt.show()
+
+        return allContourEdges, contourLineConstraintWeight, contourLineConstraintHeight
+
+    def extractContourLineConstraints3(s, draw=False,  waitTime = 0):
+        '''
+        extract the contourline directly from the saddle position
+        avoid using the segmentation because they may not form a correct singly connected component
+        '''
+
+        for iNode in range(len(s.nodes)):
+            # skip the nodes that are not saddle points
+            if s.nodes[iNode].criticalType != s.saddleTypeId:
+                continue
+
+            allContourEdges, contourLineConstraintWeight, contourLineConstraintHeight = s.getUnorderedContourLineConstraintsAtHeight(
+                iNode)
+
+            print("Saddle point id: ", iNode)
+
+            iMeshVert = s.nodeToField[iNode]
+            edgesToRemove = []
+            saddleNeighborEdges = findSaddleNeighborhood(iMeshVert, s.gridSize)
+            initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, s.gridSize,
+                                                                       allContourEdges)
+            newContourConstraints = ContourConstraint(s.gridSize)
+
+            while initCEdge is not None:
+                edgesToRemove.append(initCEdge)
+                newEdges, newWeights, newHeights = reorderContourPointsOneLoop(saddleNeighborEdges, initPEdge,
+                                                                               initCEdge, currentEdgeIndex, s.gridSize,
+                                                                               allContourEdges,
+                                                                               contourLineConstraintWeight,
+                                                                               contourLineConstraintHeight)
+                edgesToRemove.append(newEdges[-1])
+                initPEdge, initCEdge, currentEdgeIndex = findStartingEdges(iMeshVert, saddleNeighborEdges, s.gridSize,
+                                                                           allContourEdges, edgesToRemove)
+
+                newContour = ContourLine(s.gridSize)
+                newContour.saddleAllContourEdges = newEdges
+                newContour.saddleAllContourWeights = newWeights
+                newContour.saddleAllContourHeights = newHeights
+
+                # check if ccw
+                if not newContour.checkCCW():
+                    print("Orientation is Not CCW, reverse it!")
+                    newContour.reverseOrientation()
+
+                newContourConstraints.addContour(newContour)
+
+            # determine the which upper node belongs to with contour
+            upperNodes = []
+
+            for iContour in range(newContourConstraints.numContours()):
+                newContourConstraints.getContour(iContour).intialize()
+                contourLine = newContourConstraints.getContour(iContour)
+                contourLine.parameterize()
+
+                for upperNodeId in s.nodes[iNode].upNodes:
+                    upperNodeCorrespondingMeshPt = s.nodeToField[upperNodeId]
+                    upperNodePos = np.array(to2DIndex(upperNodeCorrespondingMeshPt, s.gridSize))
+                    upperNodePosSp = Point(upperNodePos[0], upperNodePos[1])
+
+                    # if newCountour.includePoint(iContour, upperNodePos):
+                    if contourLine.shapelyGeometry.contains(upperNodePosSp):
+                        contourLine.embracingHigherNodeId = upperNodeId
+                        upperNodes.append(upperNodePos)
+
+            assert newContourConstraints.numContours() == 2
+
+            print("Num countour lines for saddle ", iNode, ":", newContourConstraints.numContours())
+            s.saddleContours[iNode] = newContourConstraints
+
+            # determining which contourline contains which higher nodes
+
+            if draw:
+                plotSaddleCountourLine(newContourConstraints, s.gridSize, upperNodes=np.array(upperNodes))
+                plt.waitforbuttonpress(waitTime)
+
+
 
     def reOrderContourline(s, draw=False, waitTime = 0):
 
