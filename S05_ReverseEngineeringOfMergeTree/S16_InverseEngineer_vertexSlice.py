@@ -5,16 +5,16 @@ from M03_Preprocessing import *
 from M05_InverseConstraints import *
 
 if __name__ == '__main__':
-    inputSegmentedField = r'.\Data\geodesics\VortexSlice\monoMesh_8_10\mt/tree1segs.vtk'
-    inputMergeTreeNodes = r'.\Data\geodesics\VortexSlice\monoMesh_8_10\mt/tree1nodes.vtk'
-    inputMergeTreeEdges = r'.\Data\geodesics\VortexSlice\monoMesh_8_10\mt/tree1edges.vtk'
+    inputSegmentedField = r'./Data/geodesics/VortexSlice/monoMesh_sub_8_10/mt/tree1segs.vtk'
+    inputMergeTreeNodes = r'./Data/geodesics/VortexSlice/monoMesh_sub_8_10/mt/tree1nodes.vtk'
+    inputMergeTreeEdges = r'./Data/geodesics/VortexSlice/monoMesh_sub_8_10/mt/tree1edges.vtk'
 
-    inputSegmentedField2 = r'.\Data\geodesics\VortexSlice\monoMesh_8_10\tree2segs.vtk'
-    inputMergeTreeNodes2 = r'.\Data\geodesics\VortexSlice\monoMesh_8_10\tree2nodes.vtk'
-    inputMergeTreeEdges2 = r'.\Data\geodesics\VortexSlice\monoMesh_8_10\tree2edges.vtk'
+    inputSegmentedField2 = r'./Data/geodesics/VortexSlice/monoMesh_sub_8_10/mt/tree2segs.vtk'
+    inputMergeTreeNodes2 = r'./Data/geodesics/VortexSlice/monoMesh_sub_8_10/mt/tree2nodes.vtk'
+    inputMergeTreeEdges2 = r'./Data/geodesics/VortexSlice/monoMesh_sub_8_10/mt/tree2edges.vtk'
 
     # the 257 in main
-    gridSize = (64, 192)  # (Y, X) resolution in paraview (rows + 1, cols + 1)
+    gridSize = (192, 576)  # (Y, X) resolution in paraview (rows + 1, cols + 1)
     # gridSize = (192, 64)  # (Y, X) resolution in paraview (rows + 1, cols + 1)
 
     tree0 = Tree()
