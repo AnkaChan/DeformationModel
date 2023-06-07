@@ -9,16 +9,24 @@ import os
 
 t = float(sys.argv[1])
 print(t)
-input_dir = "./HeatedFlowY/"
-output_dir = "./HeatedFlowY/data_615_617/"
+input_dir = sys.argv[2]
+print("input dir", input_dir)
+output_dir = sys.argv[3]
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
+print("output dir", output_dir)
 
-inputStartFile = "data_615.vti"
-inputEndFile = "data_617.vti"
-threshold = 0.06
-treeType = "mt"
-scalarField = 'velocityMagnitude'
+inputStartFile = sys.argv[4]
+print("start", inputStartFile)
+inputEndFile = sys.argv[5]
+print("end", inputEndFile)
+threshold = float(sys.argv[6])
+print("threshold", threshold)
+absoluteParam = int(sys.argv[7])  # relative persistence threshold or absolute
+print("absolute param", absoluteParam)
+treeType = sys.argv[8]
+print("tree type", treeType)
+scalarField = sys.argv[9]
 
 mt_dir = os.path.join(output_dir, treeType)
 print(mt_dir)
@@ -26,8 +34,18 @@ print(mt_dir)
 if not os.path.exists(mt_dir):
     os.makedirs(mt_dir)
 
-inputStartData = XMLImageDataReader(FileName=[input_dir + inputStartFile])
-inputEndData = XMLImageDataReader(FileName=[input_dir + inputEndFile])
+# assume that input start and end files are of the same type
+fileType = inputStartFile.split('.')[-1]
+print(fileType)
+
+if fileType == 'vtp':
+    inputStartDataRaw = XMLPolyDataReader(FileName=[input_dir + inputStartFile])
+    inputStartData = Tetrahedralize(registrationName='inputStartData', Input=inputStartDataRaw)
+    inputEndDataRaw = XMLPolyDataReader(FileName=[input_dir + inputEndFile])
+    inputEndData = Tetrahedralize(registrationName='inputEndData', Input=inputEndDataRaw)
+if fileType == 'vti':
+    inputStartData = XMLImageDataReader(FileName=[input_dir + inputStartFile])
+    inputEndData = XMLImageDataReader(FileName=[input_dir + inputEndFile])
 
 # ------------------------------------------------------------------------------
 # 0. Perform persistence Simplification
@@ -36,10 +54,12 @@ inputEndData = XMLImageDataReader(FileName=[input_dir + inputEndFile])
 simplifiedStart = TTKTopologicalSimplificationByPersistence(registrationName='simplifiedStart', Input=inputStartData)
 simplifiedStart.InputArray = ['POINTS', scalarField]
 simplifiedStart.PersistenceThreshold = threshold
+simplifiedStart.ThresholdIsAbsolute = absoluteParam
 
 simplifiedEnd = TTKTopologicalSimplificationByPersistence(registrationName='simplifiedEnd', Input=inputEndData)
 simplifiedEnd.InputArray = ['POINTS', scalarField]
 simplifiedEnd.PersistenceThreshold = threshold
+simplifiedEnd.ThresholdIsAbsolute = absoluteParam
 
 # ------------------------------------------------------------------------------
 # 1. Compute and save start and end merge trees
@@ -48,7 +68,8 @@ simplifiedEnd.PersistenceThreshold = threshold
 # compute start merge trees
 MTStart = TTKMergeandContourTreeFTM(registrationName='MTStart', Input=simplifiedStart)
 MTStart.ScalarField = ['POINTS', scalarField]
-MTStart.TreeType = 'Join Tree'
+if treeType == 'mt':
+    MTStart.TreeType = 'Join Tree'
 
 # save start tree info
 SetActiveSource(MTStart)
@@ -64,7 +85,8 @@ SaveData(mt_dir + '/' + 'tree1segs.vtk', proxy=OutputPort(MTStart_2, 2))
 # compute end merge tree
 MTEnd = TTKMergeandContourTreeFTM(registrationName='MTEnd', Input=simplifiedEnd)
 MTEnd.ScalarField = ['POINTS', scalarField]
-MTEnd.TreeType = 'Join Tree'
+if treeType == 'mt':
+    MTEnd.TreeType = 'Join Tree'
 
 # save end tree info
 SetActiveSource(MTEnd)
