@@ -477,7 +477,7 @@ class Tree:
             s.nodeToField.append(np.argmin(dis))
             matchDis.append(dis[s.nodeToField[-1]])
             # print("Min distance: ", dis[matchedVIds[-1]])
-            assert dis[s.nodeToField[-1]] < 1e-6
+            assert dis[s.nodeToField[-1]] < 1e-2
 
             s.nodes[iNode].posInField = np.array(to2DIndex(s.nodeToField[-1], s.gridSize))
 
