@@ -7,14 +7,14 @@ if __name__ == "__main__":
         print(t)
 
         input_dir = "./VortexSlice/"
-        output_dir = "./VortexSlice/monoMesh_sub_8_10/"
-        inputStartFile = "monoMesh_sub_008.vti"
-        inputEndFile = "monoMesh_sub_010.vti"
+        output_dir = "./VortexSlice/monoMesh_8_10_smoothed/"
+        inputStartFile = "monoMesh_008_smoothed.vti"
+        inputEndFile = "monoMesh_010_smoothed.vti"
         threshold = 0.02
         absoluteParam = 0  # 0 - relative persisththt7ht7hh7tht7ht7tht7tence threshold (1%) 1 - absolute persistence threshold (0.06)
         print(absoluteParam)
         treeType = "mt"
-        scalarField = 'speed'
+        scalarField = 'speed_smoothed'
 
         submitCommand = "pvpython geodesic_other.py " + str(t) + " " + input_dir + \
                         " " + output_dir + " " + inputStartFile + " " + inputEndFile + " " + \
