@@ -6,8 +6,8 @@ from pyevtk.hl import imageToVTK
 
 input_dir = "./VortexSlice/"
 # output_dir = "./VortexSlice/monoMesh_8_10/"
-inputStartFile = "monoMesh_010.vti"
-outfile = input_dir + "monoMesh_010_smoothed"
+inputStartFile = "monoMesh_008.vti"
+outfile = input_dir + "monoMesh_008_smoothed"
 gridSize = (192, 64)
 
 fig = plt.figure()
@@ -25,4 +25,5 @@ print(input_image.shape)
 speed_pts = input_image.reshape(gridSize[0], gridSize[1], 1)
 smoothed_pts = smoothed.reshape(gridSize[0], gridSize[1], 1)
 print(outfile)
-imageToVTK(outfile, pointData={"speed": speed_pts, "speed_smoothed": smoothed_pts})
+np.save(outfile + ".npy", smoothed)
+# imageToVTK(outfile, pointData={"speed": speed_pts, "speed_smoothed": smoothed_pts})

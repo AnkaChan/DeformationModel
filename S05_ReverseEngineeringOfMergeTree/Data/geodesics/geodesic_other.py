@@ -70,6 +70,8 @@ MTStart = TTKMergeandContourTreeFTM(registrationName='MTStart', Input=simplified
 MTStart.ScalarField = ['POINTS', scalarField]
 if treeType == 'mt':
     MTStart.TreeType = 'Join Tree'
+elif treeType == 'st':
+    MTStart.TreeType = 'Split Tree'
 
 # save start tree info
 SetActiveSource(MTStart)
@@ -87,6 +89,8 @@ MTEnd = TTKMergeandContourTreeFTM(registrationName='MTEnd', Input=simplifiedEnd)
 MTEnd.ScalarField = ['POINTS', scalarField]
 if treeType == 'mt':
     MTEnd.TreeType = 'Join Tree'
+elif treeType == 'st':
+    MTEnd.TreeType = 'Split Tree'
 
 # save end tree info
 SetActiveSource(MTEnd)
