@@ -378,6 +378,8 @@ class ContourConstraint:
     def addContour(s, newContour):
         s.contourLines.append(newContour)
 
+# by default it is a join/merge tree
+# if a split tree is provided then it needs to be converted to a merge tree
 class Tree:
     def __init__(s, nodesData=None, edgesData=None, segmentationData=None, gridSize=None, splitTree=False, segmentationDataScalarName="Height"):
         s.nodes = []
@@ -398,6 +400,7 @@ class Tree:
                 # scalars = np.array(segmentationData[segmentationDataScalarName])
                 # plt.imshow(scalars.reshape(gridSize))
                 # plt.show()
+
         else:
             actualUp = "up"
             actualDown = "down"
@@ -482,6 +485,80 @@ class Tree:
         edges = pv.read(edgeFile)
         s.__init__(nodes, edges, fieldSeg, gridSize=gridSize, splitTree=splitTree, segmentationDataScalarName=segmentationDataScalarName)
 
+    # initialize a abstract tree from the edge structure
+    # only works for splitTree for now
+    # edges = [[downNode, upNode], [downNode, upNode], [downNode, upNode],]
+    def intitializeFromEdges(s, edges, splitTree=False):
+        s.nodes = []
+        s.edges = []
+
+        s.isSplitTree = splitTree
+
+        s.rootNodeId = None
+
+        if splitTree:
+            actualUp = "down"
+            actualDown = "up"
+            edges = [[e[1], e[0]] for e in edges]
+
+        else:
+            actualUp = "up"
+            actualDown = "down"
+
+
+        s.nodeToField = []
+        s.contourLineHeight = {}  # key (a, b): a: higher segment, b lower segment
+
+        s.saddleContours = {}
+
+        s.saddleTypeId = 2
+
+        # convert split tree to merge tree
+        # if splitTree:
+        #     s.nodesData['Scalar'] = -s.nodesData['Scalar']
+        #     s.segmentationData[s.segmentationDataScalarName] = -s.segmentationData[s.segmentationDataScalarName]
+
+        if gridSize is None:
+            s.gridSize = ()
+        else:
+            s.gridSize = gridSize
+        allNodes = []
+        for e in edges:
+            allNodes.extend(e)
+
+        numNodes = np.max(allNodes)
+
+        for iNode in range(numNodes):
+            # non-saddle node
+            newNode = TreeNode()
+            newNode.id = iNode
+            newNode.criticalType = NotImplementedError
+            newNode.scalar = NotImplementedError
+            newNode.position = NotImplementedError
+            s.nodes.append(newNode)
+
+        for iEdge in range(edges):
+            newEdge = Edge()
+            newEdge.id = iEdge
+            newEdge.nodes = edges[iEdge]
+            newEdge.upNode = edges[iEdge][1]
+            newEdge.downNode = edges[iEdge][0]
+            s.edges.append(newEdge)
+            # initialize the connectivity infos for up node
+
+            upNode = s.nodes[newEdge.upNode]
+            upNode.downEdges.append(iEdge)
+            upNode.downNodes.append(edges)
+
+            downNode = s.nodes[newEdge.downNode]
+            downNode.upNodes.append(edges)
+            downNode.upEdges.append(iEdge)
+
+            # if edgesData["downNodeId"][iEdge] == iNode:
+            #     upSegs.append(edgesData["SegmentationId"][iEdge])
+            # if edgesData["upNodeId"][iEdge] == iNode:
+            #     downsegs.append(edgesData["SegmentationId"][iEdge])
+    
     def matchTreeToGrid(s ):
         numNodes = len(s.nodes)
 

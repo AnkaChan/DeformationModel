@@ -6,7 +6,7 @@ import numpy as np
 from M01_TopologicalExtraction import *
 from copy import deepcopy
 from matplotlib.collections import LineCollection
-
+import pandas as pd
 
 def findCorr(iNode, iTree, treeToTreeCorrespondence):
     anotherTreeId = (iTree + 1) % 2
@@ -14,13 +14,112 @@ def findCorr(iNode, iTree, treeToTreeCorrespondence):
     i = np.where(treeToTreeCorrespondence[:, iTree] == iNode)[0][0]
     return treeToTreeCorrespondence[i, anotherTreeId]
 
+def parseTreeCSV(csvFile):
+    data = pd.read_csv(csvFile)
+    # filter out all the intermediate
+    dummyNodeMask = data.loc[:, "isDummyNode"].to_numpy()
+
+    validNodeIds = np.where(np.logical_not(dummyNodeMask))[0]
+
+    vIdMap = {}
+    nodeIds = data.loc[:, "NodeId"].to_numpy()
+
+    for iNode in range(validNodeIds.shape[0]):
+        vIdMap[nodeIds[validNodeIds[iNode]]] = iNode
+
+    parsed = {}
+    for column_headers in data.columns:
+        if column_headers != "isDummyNode":
+            parsed[column_headers] = data.loc[:, column_headers].to_numpy()[validNodeIds]
+
+    return parsed, validNodeIds, vIdMap
+
+# vIdMap: ttkId -> the id with dummy nodes removed
+def parseEdgeCSV(csvFile, vIdMap):
+    data = pd.read_csv(csvFile)
+    # filter out all the intermediate
+    dummyNodeMask = data.loc[:, "isDummyArc"].to_numpy()
+
+    validNodeIds = np.where(np.logical_not(dummyNodeMask))
+
+    parsed = {}
+    for column_headers in data.columns:
+        if column_headers != "isDummyArc":
+            parsed[column_headers] = data.loc[:, column_headers].to_numpy()[validNodeIds]
+    edges = []
+    for i in range(parsed["upNodeId"].shape[0]):
+        edges.append([vIdMap[parsed["downNodeId"][i]], vIdMap[parsed["upNodeId"][i]]])
+
+    return parsed, validNodeIds
+
+class IntermediateTreeMatcher():
+    def __init__(s, tree0, tree1, intermediateTreeFiles, intermediateTreeEdgesFiles, splitTree=True):
+        s.tree0NodeScalars = []
+        s.tree1NodeScalars = []
+
+        s.tree0ToIntermediate = []
+        s.tree1ToIntermediate = []
+
+        s.intermediateTreeToTree0Match = []
+        s.intermediateTreeToTree1Match = []
+
+
+        for i in range(tree0.numNodes()):
+            s.tree0NodeScalars.append(tree0.node(i).scalar)
+
+        for i in range(tree1.numNodes()):
+            s.tree1NodeScalars.append(tree1.node(i).scalar)
+
+        # this vIdMap Is from ttk's "nodeId" to indices with dummies removed
+        initialTree, _, vIdMap = parseTreeCSV(intermediateTreeFiles[0])
+        finalTree, _, _ = parseTreeCSV(intermediateTreeFiles[-1])
+
+        s.intermediateTreeToTree0Match = -1 *np.ones(initialTree["Scalar"].shape[0], dtype=int)
+        s.intermediateTreeToTree1Match = -1* np.ones(initialTree["Scalar"].shape[0], dtype=int)
+
+        edges = parseEdgeCSV(intermediateTreeEdgesFiles[0], vIdMap)
+
+        if splitTree:
+            initialTree["Scalar"] = -initialTree["Scalar"]
+            finalTree["Scalar"] = -finalTree["Scalar"]
+
+        # match tree0 to tree1
+        for i in range(len(s.tree0NodeScalars) ):
+            dis = initialTree["Scalar"] - s.tree0NodeScalars[i]
+            bestMatch = np.argmin(np.abs(dis))
+
+            s.tree0ToIntermediate.append(int(bestMatch))
+
+            s.intermediateTreeToTree0Match[i] = bestMatch
+
+        assert len(set(s.tree0ToIntermediate)) == len(s.tree0ToIntermediate)
+
+        # match tree0 to tree1
+        for i in range(len(s.tree1NodeScalars) ):
+            dis = finalTree["Scalar"] - s.tree1NodeScalars[i]
+            bestMatch = np.argmin(np.abs(dis))
+
+            s.tree1ToIntermediate.append(int(bestMatch))
+            s.intermediateTreeToTree1Match[i] = bestMatch
+
+        assert len(set(s.tree1ToIntermediate)) == len(s.tree1ToIntermediate)
+
+
 
 
 class LinearAnimation:
     """
-
+    correspondences: correspondences[i][0] is the corresponding node of node i in tree0
+                     correspondences[i][1] is the corresponding node of node i in tree1
     """
     def __init__(s, tree0, tree1, correspondences, intermediateTreeHeights):
+        pass
+
+    """
+        correspondences: is the correspondence from tree0 to tree1
+                         
+    """
+    def init_old(s, tree0, tree1, correspondences, intermediateTreeHeights):
         s.tree0 = tree0
         s.tree1 = tree1
         s.correspondences = correspondences
