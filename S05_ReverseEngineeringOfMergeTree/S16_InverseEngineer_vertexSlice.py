@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     tree0.extractContourLineConstraints3()
     # tree0.extractContourLineConstraints()
-    tree0.reOrderContourline(False, waitTime=100)
+    # tree0.reOrderContourline(False, waitTime=100)
 
     tree1 = Tree()
     tree1.load(inputMergeTreeNodes2, inputMergeTreeEdges2, inputSegmentedField2, gridSize=gridSize, splitTree=True,

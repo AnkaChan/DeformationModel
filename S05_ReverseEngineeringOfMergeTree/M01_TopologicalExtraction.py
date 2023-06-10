@@ -15,6 +15,8 @@ from qpsolvers import solve_qp, available_solvers
 from scipy import sparse
 from matplotlib.collections import LineCollection
 
+from scipy.spatial import distance_matrix
+
 from shapely.geometry.polygon import Polygon, Point
 print('Avaliable qp solvers: ', available_solvers)
 # def writeOBj(outObj, N, X, Y, Z):
@@ -191,6 +193,31 @@ class ContourLine:
             return True
         else:
             return False
+    def repermute(s, parameterStartNodeId):
+
+        if parameterStartNodeId != 0:
+            # sort the nodes to make sure their parameters are ascending
+            sortedId = []
+            for i in range(s.numVertices()):
+                id = (i + parameterStartNodeId) % s.numVertices()
+                sortedId.append(id)
+            if len(s.contourLineParameters) != 0:
+                s.contourLineParameters = s.contourLineParameters[sortedId]
+
+            saddleAllContourEdgesNew = [s.saddleAllContourEdges[id] for id in sortedId]
+            s.saddleAllContourEdges = saddleAllContourEdgesNew
+
+            saddleAllContourWeightsNew = [s.saddleAllContourWeights[id] for id in sortedId]
+            s.saddleAllContourWeights = saddleAllContourWeightsNew
+
+            saddleAllContourHeightsNew = [s.saddleAllContourHeights[id] for id in sortedId]
+            s.saddleAllContourHeights = saddleAllContourHeightsNew
+
+            # s.saddleAllContourEdges = s.saddleAllContourEdges[sortedId]
+            # s.saddleAllContourWeights = s.saddleAllContourWeights[sortedId]
+            # s.saddleAllContourHeights = s.saddleAllContourHeights[sortedId]
+            # s.embracingHigherNodeId = s.embracingHigherNodeId[sortedId]
+            s.initializeAllNodes()
 
     def parameterize(s, parameterStartNodeId=0, repermute=False):
         totalLength = 0
@@ -207,19 +234,8 @@ class ContourLine:
         totalLength += np.linalg.norm(s.getEdge(s.numVertices()-1))
         s.contourLineParameters = s.contourLineParameters/totalLength
 
-        if parameterStartNodeId != 0 and repermute:
-            # sort the nodes to make sure their parameters are ascending
-            sortedId = np.argsort(s.contourLineParameters)
-            s.contourLineParameters = s.contourLineParameters[sortedId]
-            s.saddleAllContourEdges = [s.saddleAllContourEdges[id] for id in sortedId]
-            s.saddleAllContourWeights = [s.saddleAllContourWeights[id] for id in sortedId]
-            s.saddleAllContourHeights =[s.saddleAllContourHeights[id] for id in sortedId]
-
-            # s.saddleAllContourEdges = s.saddleAllContourEdges[sortedId]
-            # s.saddleAllContourWeights = s.saddleAllContourWeights[sortedId]
-            # s.saddleAllContourHeights = s.saddleAllContourHeights[sortedId]
-            # s.embracingHigherNodeId = s.embracingHigherNodeId[sortedId]
-            s.initializeAllNodes()
+        if repermute:
+            s.repermute(parameterStartNodeId)
 
     def getPosition(s, t):
         ts = s.contourLineParameters
@@ -775,7 +791,25 @@ class Tree:
                     print("Orientation is Not CCW, reverse it!")
                     newContour.reverseOrientation()
 
+                # check if it starts with the saddle
+                # allNodes = newContour.getAllNodes()
+                # diff = s.nodes[iNode].posInField - allNodes
+                # dis = np.linalg.norm(diff, axis=1)
+                # if np.argmin(dis).item() != 0:
+                #     newContour.repermute(np.argmin(dis))
+
                 newContourConstraints.addContour(newContour)
+
+            assert newContourConstraints.numContours() == 2
+            newContourConstraints.getContour(0).initializeAllNodes()
+            newContourConstraints.getContour(1).initializeAllNodes()
+            allNodes1 = newContourConstraints.getContour(0).getAllNodes()
+            allNodes2 = newContourConstraints.getContour(1).getAllNodes()
+
+            disMat = distance_matrix(allNodes1, allNodes2)
+            minValId = np.unravel_index(disMat.argmin(), disMat.shape)
+            newContourConstraints.getContour(0).repermute(minValId[0])
+            newContourConstraints.getContour(1).repermute(minValId[1])
 
             # determine the which upper node belongs to with contour
             upperNodes = []
@@ -803,8 +837,11 @@ class Tree:
             # determining which contourline contains which higher nodes
 
             if draw:
-                plotSaddleCountourLine(newContourConstraints, s.gridSize, upperNodes=np.array(upperNodes))
-                plt.waitforbuttonpress(waitTime)
+                plotSaddleCountourLine(newContourConstraints, s.gridSize, saddle=s.nodes[iNode].posInField, upperNodes=np.array(upperNodes))
+                plt.waitforbuttonpress(waitTime,)
+                plt.waitforbuttonpress(waitTime,)
+
+
 
 
 
@@ -1090,7 +1127,7 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
 
     return contourEdgesReordered, contourWeightsReordered, contourHeightsReordered
 
-def plotSaddleCountourLine(newContourConstraints, gridSize, upperNodes=None):
+def plotSaddleCountourLine(newContourConstraints, gridSize, saddle =None, upperNodes=None):
     # plt.figure()
     # plt.ylim(0, gridSize[1])
     # plt.xlim(0, gridSize[0])
@@ -1112,6 +1149,11 @@ def plotSaddleCountourLine(newContourConstraints, gridSize, upperNodes=None):
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         cols = newContourConstraints.getContour(iContour).contourLineParameters
 
+        print("AllPts: " , allPts)
+
+        if saddle is not None:
+            ax.scatter(saddle[0], saddle[1], marker ="*", color = colors[iContour])
+
         if upperNodes is not None:
             ax.scatter(upperNodes[iContour, 0], upperNodes[iContour,1], marker ="*", color = colors[iContour])
         # plt.plot(allPts[:, 0], allPts[:, 1], color = colors[iContour])
@@ -1123,7 +1165,7 @@ def plotSaddleCountourLine(newContourConstraints, gridSize, upperNodes=None):
         line = ax.add_collection(lc)
         fig.colorbar(line, ax=ax)
 
-    plt.show()
+    # plt.show()
 
 def writeOBj(outObj, X, Y, Z, gridSize, ):
     '''
