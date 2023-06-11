@@ -59,12 +59,12 @@ if __name__ == '__main__':
     nameToTree2s = "tree1ToInterpolated"
     deformationDataFileToTree2s = glob.glob(join(inDeformDataFolder, nameToTree2s + "*.csv"))
 
-    treeToTreeCorrespondence = np.array([
-        [3, -1],
-        [4, 2],
+    intermediateTreeCorrespondence = np.array([
         [0, 0],
         [1, -1],
         [2, 1],
+        [3, -1],
+        [4, 2],
         [5, 3]
     ], dtype=np.int)
 
@@ -96,9 +96,9 @@ if __name__ == '__main__':
     tree1.extractContourLineConstraintsNew()
     tree1.reOrderContourline(False, waitTime=100)
 
-    intermediateTreeNodeHeight = getIntermediateTreeNodeHeight(tree0, tree1, treeToTreeCorrespondence,  nSteps = 100)
+    intermediateTreeNodeHeight = getIntermediateTreeNodeHeight(tree0, tree1, intermediateTreeCorrespondence,  nSteps = 100)
 
-    animation = LinearAnimation(tree0, tree1, correspondences=treeToTreeCorrespondence, intermediateTreeHeights=intermediateTreeNodeHeight)
+    animation = LinearAnimation(tree0, tree1, correspondences=intermediateTreeCorrespondence, intermediateTreeHeights=intermediateTreeNodeHeight)
 
 
     for i, t in enumerate(np.linspace(0.01, 0.99, 99, endpoint=True)):
