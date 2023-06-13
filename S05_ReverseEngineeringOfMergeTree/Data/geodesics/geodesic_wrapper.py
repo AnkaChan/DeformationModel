@@ -7,9 +7,9 @@ if __name__ == "__main__":
         print(t)
 
         input_dir = "./MovingGaussian/"
-        output_dir = "./MovingGaussian/monoMesh_0_2/"
-        inputStartFile = "monoMesh_0.vtp"
-        inputEndFile = "monoMesh_2.vtp"
+        output_dir = "./MovingGaussian/monoMesh_2_3/"
+        inputStartFile = "monoMesh_2.vtp"
+        inputEndFile = "monoMesh_3.vtp"
         threshold = 0.01
         absoluteParam = 0  # 0 - relative persistence threshold (1%) 1 - absolute persistence threshold (0.06)
         print(absoluteParam)

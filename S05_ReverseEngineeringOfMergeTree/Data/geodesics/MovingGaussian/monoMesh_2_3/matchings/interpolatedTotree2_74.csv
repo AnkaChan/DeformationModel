@@ -1,0 +1,7 @@
+"Cell Type","Cost","MatchingID","MatchingPercentMatch","MatchingType","MeanMatchedPersistence","tree1NodeId","tree2NodeId"
+3,0.00038798,0,200,2,28.722,7,7
+3,0.00038798,1,200,3,28.722,0,0
+3,6.7644e-05,2,200,2,0.5191,9,9
+3,6.7644e-05,3,200,1,0.5191,3,3
+3,1.976e-05,4,200,2,2.8575,5,5
+3,1.976e-05,5,200,1,2.8575,1,1
