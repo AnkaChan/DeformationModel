@@ -50,7 +50,7 @@ def parseEdgeCSV(csvFile, vIdMap):
     for i in range(parsed["upNodeId"].shape[0]):
         edges.append([vIdMap[parsed["downNodeId"][i]], vIdMap[parsed["upNodeId"][i]]])
 
-    return parsed, validNodeIds
+    return edges, parsed, validNodeIds
 
 class IntermediateTreeMatcher():
     def __init__(s, tree0, tree1, intermediateTreeFiles, intermediateTreeEdgesFiles, splitTree=True):
@@ -71,13 +71,20 @@ class IntermediateTreeMatcher():
             s.tree1NodeScalars.append(tree1.node(i).scalar)
 
         # this vIdMap Is from ttk's "nodeId" to indices with dummies removed
-        initialTree, _, vIdMap = parseTreeCSV(intermediateTreeFiles[0])
+        initialTree, _, intermediateTreeNodeIdToTTKNodeIndexMap = parseTreeCSV(intermediateTreeFiles[0])
         finalTree, _, _ = parseTreeCSV(intermediateTreeFiles[-1])
 
         s.intermediateTreeToTree0Match = -1 *np.ones(initialTree["Scalar"].shape[0], dtype=int)
         s.intermediateTreeToTree1Match = -1* np.ones(initialTree["Scalar"].shape[0], dtype=int)
 
-        edges = parseEdgeCSV(intermediateTreeEdgesFiles[0], vIdMap)
+        # note that the ttk tree node's index is not equal to its "nodeId" attribute
+        # however the edge uses this "nodeId" attribute to discribe the structure of the tree
+        TTKNodeIdMapTointermediateTreeNodeId = {}
+
+        for iNode in range(initialTree["NodeId"].shape[0]):
+            TTKNodeIdMapTointermediateTreeNodeId[initialTree["NodeId"][iNode]] = iNode
+
+        s.edges, _, _ = parseEdgeCSV(intermediateTreeEdgesFiles[0], TTKNodeIdMapTointermediateTreeNodeId)
 
         if splitTree:
             initialTree["Scalar"] = -initialTree["Scalar"]
@@ -90,9 +97,13 @@ class IntermediateTreeMatcher():
 
             s.tree0ToIntermediate.append(int(bestMatch))
 
-            s.intermediateTreeToTree0Match[i] = bestMatch
+            s.intermediateTreeToTree0Match[bestMatch] = i
 
         assert len(set(s.tree0ToIntermediate)) == len(s.tree0ToIntermediate)
+        print("Edges written in Tree0's edges:")
+        for iEdge in range(len(s.edges)):
+            if s.intermediateTreeToTree0Match[s.edges[iEdge][0]] >=0 and s.intermediateTreeToTree0Match[s.edges[iEdge][1]] >=0:
+                print("[", s.intermediateTreeToTree0Match[s.edges[iEdge][0]],",", s.intermediateTreeToTree0Match[s.edges[iEdge][1]],"]")
 
         # match tree0 to tree1
         for i in range(len(s.tree1NodeScalars) ):
@@ -100,7 +111,7 @@ class IntermediateTreeMatcher():
             bestMatch = np.argmin(np.abs(dis))
 
             s.tree1ToIntermediate.append(int(bestMatch))
-            s.intermediateTreeToTree1Match[i] = bestMatch
+            s.intermediateTreeToTree1Match[bestMatch] = i
 
         assert len(set(s.tree1ToIntermediate)) == len(s.tree1ToIntermediate)
 

@@ -45,3 +45,4 @@ if __name__ == '__main__':
     # tree1.reOrderContourline(False, waitTime=100)
 
     treeMatcher = IntermediateTreeMatcher(tree0, tree1, intermediateTreeFiles, intermediateTreeEdgesFiles)
+
