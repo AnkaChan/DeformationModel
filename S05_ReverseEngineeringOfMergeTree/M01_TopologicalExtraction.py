@@ -915,8 +915,10 @@ class Tree:
 
             if draw:
                 plotSaddleCountourLine(newContourConstraints, s.gridSize, saddle=s.nodes[iNode].posInField, upperNodes=np.array(upperNodes))
+                # plt.show()
                 plt.waitforbuttonpress(waitTime,)
                 plt.waitforbuttonpress(waitTime,)
+
 
 
 
