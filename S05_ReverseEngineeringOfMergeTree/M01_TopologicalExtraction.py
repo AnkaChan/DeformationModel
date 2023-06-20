@@ -849,7 +849,7 @@ class Tree:
 
             while initCEdge is not None:
                 edgesToRemove.append(initCEdge)
-                newEdges, newWeights, newHeights = reorderContourPointsOneLoop(saddleNeighborEdges, initPEdge,
+                newEdges, newWeights, newHeights = reorderContourPointsOneLoop(s, saddleNeighborEdges, initPEdge,
                                                                                initCEdge, currentEdgeIndex, s.gridSize,
                                                                                allContourEdges,
                                                                                contourLineConstraintWeight,
@@ -942,7 +942,7 @@ class Tree:
 
             while initCEdge is not None:
                 edgesToRemove.append(initCEdge)
-                newEdges, newWeights, newHeights = reorderContourPointsOneLoop(saddleNeighborEdges, initPEdge,
+                newEdges, newWeights, newHeights = reorderContourPointsOneLoop(s, saddleNeighborEdges, initPEdge,
                                                                                initCEdge, currentEdgeIndex, s.gridSize,
                                                                                s.contourIntersectingEdges, s.contourLineConstraintWeight,
                                                                                s.contourLineConstraintHeight)
@@ -1045,11 +1045,14 @@ def checkCurrentSquareIntersections(currentSquare, contourEdges):
     reverseSquare = [(edge[1], edge[0]) for edge in currentSquare]
     reverseIntersections = [edge for edge in reverseSquare if edge in contourEdges]
     if len(intersections) + len(reverseIntersections) > 1:
-        raise ValueError("Too many intersection points in the current square.")
+        print("intersections", intersections)
+        print("reverse intersections", reverseIntersections)
+        # raise ValueError("Fixing marching cube bug")
+        return 2
     elif len(intersections) + len(reverseIntersections) == 0:
         raise ValueError("No intersection point in the current square.")
     else:
-        return True
+        return 1
 
 
 def isEdge(edge, gridSize):
@@ -1151,7 +1154,7 @@ def plotEdges(edgesToPlot, step=None):
     plt.show()
 
 
-def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, currentEdgeIndex, gridSize, contourEdges, contourWeights, contourHeights):
+def reorderContourPointsOneLoop(tree, saddleNeighborEdges, previousEdge, currentEdge, currentEdgeIndex, gridSize, contourEdges, contourWeights, contourHeights):
     """
     Reorder the contour line points, weights and heights for one loop around a saddle point (a saddle can have multiple loops).
     Output: reordered contourEdges, contourWeights, and contourHeights
@@ -1169,8 +1172,9 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
 
     contourEdgesSet = set([(e[0], e[1]) for e in contourEdges])
 
-    # print(checkCurrentSquareIntersections(currentSquare, contourEdges))
-    if checkCurrentSquareIntersections(currentSquare, contourEdges):
+    print(checkCurrentSquareIntersections(currentSquare, contourEdges))
+    # there's only one intersection edge in the current square
+    if checkCurrentSquareIntersections(currentSquare, contourEdges) == 1:
         for edge in currentSquare:
             if edge in contourEdges:
                 previousEdge = currentEdge
@@ -1180,6 +1184,40 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
                 previousEdge = currentEdge
                 currentEdge = (edge[1], edge[0])
                 currentEdgeIndex = contourEdges.index(currentEdge)
+    # there are 2 or 3 intersection edges in the current square
+    elif checkCurrentSquareIntersections(currentSquare, contourEdges) == 2:
+        # print(tree.segmentationData['velocityMagnitude'])
+        print("there are more than 1 intersections 2!")
+        inputFile = "./Data/geodesics/HeatedFlowY/data_601.vti"
+        scalar_name = 'velocityMagnitude'
+        inputSf = pv.read(inputFile)
+        sf = np.array(inputSf[scalar_name]).reshape(gridSize[0], gridSize[1])
+        # plt.imshow(sf)
+        # plt.show()
+        currentEdge_pt0 = to2DIndex(currentEdge[0], gridSize)
+        currentEdge_pt1 = to2DIndex(currentEdge[1], gridSize)
+        scalar_pt0 = sf[currentEdge_pt0[0], currentEdge_pt0[1]]
+        scalar_pt1 = sf[currentEdge_pt1[0], currentEdge_pt1[1]]
+        pt2choose = currentEdge[np.argmax([scalar_pt0, scalar_pt1])]  # pt0 or pt1 of the current edge
+        for edge in currentSquare:
+            print(edge)
+            if edge in contourEdgesSet and pt2choose in edge:
+                previousEdge = currentEdge
+                currentEdge = edge
+                currentEdgeIndex = contourEdges.index(currentEdge)
+            elif (edge[1], edge[0]) in contourEdgesSet and pt2choose in edge:
+
+                # edge_pt1 = to2DIndex(edge[1], gridSize)
+                # edge_pt0 = to2DIndex(edge[0], gridSize)
+                # plotEdge = list(zip(edge_pt0, edge_pt1))
+                # y = gridSize[0] - np.array(plotEdge[0])
+                # plt.plot(list(plotEdge[1]), list(plotEdge[0]), 'ro--', markersize=6)
+                # plt.show()
+
+                previousEdge = currentEdge
+                currentEdge = (edge[1], edge[0])
+                currentEdgeIndex = contourEdges.index(currentEdge)
+
     contourEdgesReordered.append(currentEdge)
     contourWeightsReordered.append(contourWeights[currentEdgeIndex])
     contourHeightsReordered.append(contourHeights[currentEdgeIndex])
@@ -1188,10 +1226,10 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
     while currentEdge not in saddleNeighborEdges and (currentEdge[1], currentEdge[0]) not in saddleNeighborEdges:
         # print("in while loop.")
         currentSquare = findSquareFromEdge(previousEdge, currentEdge, gridSize)
+        # print("current square", currentSquare)
         # print(checkCurrentSquareIntersections(currentSquare, contourEdges))
-        if checkCurrentSquareIntersections(currentSquare, contourEdges):
+        if checkCurrentSquareIntersections(currentSquare, contourEdges) == 1:
             for edge in currentSquare:
-
                 if edge in contourEdgesSet:
                     previousEdge = currentEdge
                     currentEdge = edge
@@ -1200,9 +1238,70 @@ def reorderContourPointsOneLoop(saddleNeighborEdges, previousEdge, currentEdge, 
                     previousEdge = currentEdge
                     currentEdge = (edge[1], edge[0])
                     currentEdgeIndex = contourEdges.index(currentEdge)
+        elif checkCurrentSquareIntersections(currentSquare, contourEdges) == 2:
+            print("there are more than 1 intersections!")
+            inputFile = "./Data/geodesics/HeatedFlowY/data_601.vti"
+            scalar_name = 'velocityMagnitude'
+            inputSf = pv.read(inputFile)
+            sf = np.array(inputSf[scalar_name]).reshape(gridSize[0], gridSize[1])  # (450, 150)
+            # print(sf.shape)
+            # plt.imshow(sf)
+            # plt.show()
+            currentEdge_pt0 = to2DIndex(currentEdge[0], gridSize)
+            currentEdge_pt1 = to2DIndex(currentEdge[1], gridSize)
+            scalar_pt0 = sf[currentEdge_pt0[0], currentEdge_pt0[1]]
+            scalar_pt1 = sf[currentEdge_pt1[0], currentEdge_pt1[1]]
+            pt2choose = currentEdge[np.argmax([scalar_pt0, scalar_pt1])]  # pt0 or pt1 of the current edge
+            print("current edge", currentEdge)
+            print("pt2choose", pt2choose)
+            for edge in currentSquare:
+                print(edge)
+                if edge in contourEdgesSet and pt2choose in edge:
+                    previousEdge = currentEdge
+                    currentEdge = edge
+                    currentEdgeIndex = contourEdges.index(currentEdge)
+                elif (edge[1], edge[0]) in contourEdgesSet and pt2choose in edge:
+
+                    # for e in currentSquare:
+                    #     e_pt0 = to2DIndex(e[0], gridSize)
+                    #     e_pt1 = to2DIndex(e[1], gridSize)
+                    #     plotE = list(zip(e_pt0, e_pt1))
+                    #     plt.plot(list(plotE[1]), list(plotE[0]), 'b*--', markersize=6)
+
+                    # edge_pt1 = to2DIndex(edge[1], gridSize)
+                    # edge_pt0 = to2DIndex(edge[0], gridSize)
+                    # plotEdge = list(zip(edge_pt0, edge_pt1))
+                    # # y = gridSize[0] - np.array(plotEdge[0])
+                    # plt.plot(list(plotEdge[1]), list(plotEdge[0]), 'ro--', markersize=4)
+
+                    print("in the reversed case.")
+                    previousEdge = currentEdge
+                    currentEdge = (edge[1], edge[0])
+                    currentEdgeIndex = contourEdges.index(currentEdge)
+
+                    # for ce in contourEdgesReordered:
+                    #     ce_pt0 = to2DIndex(ce[0], gridSize)
+                    #     ce_pt1 = to2DIndex(ce[1], gridSize)
+                    #     plotCE = list(zip(ce_pt0, ce_pt1))
+                    #     plt.plot(list(plotCE[1]), list(plotCE[0]), 'm^-', markersize=6)
+                    # plt.show()
+
+        # print("new current edge", currentEdge)
         contourEdgesReordered.append(currentEdge)
         contourWeightsReordered.append(contourWeights[currentEdgeIndex])
         contourHeightsReordered.append(contourHeights[currentEdgeIndex])
+
+    # inputFile = "./Data/geodesics/HeatedFlowY/data_601.vti"
+    # scalar_name = 'velocityMagnitude'
+    # inputSf = pv.read(inputFile)
+    # sf = np.array(inputSf[scalar_name]).reshape(gridSize[0], gridSize[1])  # (450, 150)
+    # plt.imshow(sf)
+    # for ce in contourEdgesReordered:
+    #     ce_pt0 = to2DIndex(ce[0], gridSize)
+    #     ce_pt1 = to2DIndex(ce[1], gridSize)
+    #     plotCE = list(zip(ce_pt0, ce_pt1))
+    #     plt.plot(list(plotCE[1]), list(plotCE[0]), 'm^-', markersize=6)
+    # plt.show()
 
     return contourEdgesReordered, contourWeightsReordered, contourHeightsReordered
 
@@ -1228,7 +1327,7 @@ def plotSaddleCountourLine(newContourConstraints, gridSize, saddle =None, upperN
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         cols = newContourConstraints.getContour(iContour).contourLineParameters
 
-        print("AllPts: " , allPts)
+        print("AllPts: ", allPts)
 
         if saddle is not None:
             ax.scatter(saddle[0], saddle[1], marker ="*", color = colors[iContour])
