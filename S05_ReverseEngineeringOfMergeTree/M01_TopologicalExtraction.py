@@ -1291,17 +1291,17 @@ def reorderContourPointsOneLoop(tree, saddleNeighborEdges, previousEdge, current
         contourWeightsReordered.append(contourWeights[currentEdgeIndex])
         contourHeightsReordered.append(contourHeights[currentEdgeIndex])
 
-    # inputFile = "./Data/geodesics/HeatedFlowY/data_601.vti"
-    # scalar_name = 'velocityMagnitude'
-    # inputSf = pv.read(inputFile)
-    # sf = np.array(inputSf[scalar_name]).reshape(gridSize[0], gridSize[1])  # (450, 150)
-    # plt.imshow(sf)
-    # for ce in contourEdgesReordered:
-    #     ce_pt0 = to2DIndex(ce[0], gridSize)
-    #     ce_pt1 = to2DIndex(ce[1], gridSize)
-    #     plotCE = list(zip(ce_pt0, ce_pt1))
-    #     plt.plot(list(plotCE[1]), list(plotCE[0]), 'm^-', markersize=6)
-    # plt.show()
+    inputFile = "./Data/geodesics/HeatedFlowY/data_601.vti"
+    scalar_name = 'velocityMagnitude'
+    inputSf = pv.read(inputFile)
+    sf = np.array(inputSf[scalar_name]).reshape(gridSize[0], gridSize[1])  # (450, 150)
+    plt.imshow(sf)
+    for ce in contourEdgesReordered:
+        ce_pt0 = to2DIndex(ce[0], gridSize)
+        ce_pt1 = to2DIndex(ce[1], gridSize)
+        plotCE = list(zip(ce_pt0, ce_pt1))
+        plt.plot(list(plotCE[1]), list(plotCE[0]), 'mo-', markersize=3)
+    plt.show()
 
     return contourEdgesReordered, contourWeightsReordered, contourHeightsReordered
 
