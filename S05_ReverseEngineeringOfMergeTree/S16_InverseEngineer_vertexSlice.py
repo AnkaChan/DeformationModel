@@ -33,7 +33,7 @@ if __name__ == '__main__':
     tree0.saddleTypeId = 2
 
     print("tree 0")
-    tree0.extractContourLineConstraints3(draw=False)
+    tree0.extractContourLineConstraints3(draw=True, )
     # tree0.extractContourLineConstraints()
     # tree0.reOrderContourline(False, waitTime=100)
 

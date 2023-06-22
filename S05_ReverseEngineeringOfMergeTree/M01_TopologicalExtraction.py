@@ -824,7 +824,7 @@ class Tree:
 
         return allContourEdges, contourLineConstraintWeight, contourLineConstraintHeight
 
-    def extractContourLineConstraints3(s, draw=False,  waitTime = 0):
+    def extractContourLineConstraints3(s, draw=False,  waitTime = 0, orderedUpnodes = True):
         '''
         extract the contourline directly from the saddle position
         avoid using the segmentation because they may not form a correct singly connected component
@@ -890,6 +890,7 @@ class Tree:
 
             # determine the which upper node belongs to with contour
             upperNodes = []
+            upperNodes = []
 
             for iContour in range(newContourConstraints.numContours()):
                 newContourConstraints.getContour(iContour).intialize()
@@ -914,10 +915,28 @@ class Tree:
             # determining which contourline contains which higher nodes
 
             if draw:
-                plotSaddleCountourLine(newContourConstraints, s.gridSize, saddle=s.nodes[iNode].posInField, upperNodes=np.array(upperNodes))
-                # plt.show()
-                plt.waitforbuttonpress(waitTime,)
-                plt.waitforbuttonpress(waitTime,)
+
+                if len(upperNodes) == 2:
+                    plotSaddleCountourLine(newContourConstraints, s.gridSize, saddle=s.nodes[iNode].posInField,
+                                           upperNodes=np.array(upperNodes))
+                    plt.show()
+
+                else:
+                    upperNodesUnordered = []
+                    for upperNodeId in s.nodes[iNode].upNodes:
+                        upperNodeCorrespondingMeshPt = s.nodeToField[upperNodeId]
+                        upperNodePos = np.array(to2DIndex(upperNodeCorrespondingMeshPt, s.gridSize))
+
+                        upperNodesUnordered.append(upperNodePos)
+
+                    plotSaddleCountourLine(newContourConstraints, s.gridSize, saddle=s.nodes[iNode].posInField,
+                                           upperNodes=np.array(upperNodesUnordered))
+                    plt.show()
+
+                    assert False, "Upnode is not contained in contourline!"
+
+                # plt.waitforbuttonpress(waitTime,)
+                # plt.waitforbuttonpress(waitTime,)
 
 
 
