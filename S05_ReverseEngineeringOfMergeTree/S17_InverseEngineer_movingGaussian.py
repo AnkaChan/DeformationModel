@@ -8,13 +8,13 @@ from M05_InverseConstraints import *
 
 
 if __name__ == '__main__':
-    inputSegmentedField = r'./Data/geodesics/MovingGaussian/monoMesh_0_2/st/tree1segs.vtk'
-    inputMergeTreeNodes = r'./Data/geodesics/MovingGaussian/monoMesh_0_2/st/tree1nodes.vtk'
-    inputMergeTreeEdges = r'./Data/geodesics/MovingGaussian/monoMesh_0_2/st/tree1edges.vtk'
+    inputSegmentedField = r'.\Data\geodesics\MovingGaussian\monoMesh_2_3\st\tree1segs.vtk'
+    inputMergeTreeNodes = r'.\Data\geodesics\MovingGaussian\monoMesh_2_3\st\tree1nodes.vtk'
+    inputMergeTreeEdges = r'.\Data\geodesics\MovingGaussian\monoMesh_2_3\st\tree1edges.vtk'
 
-    inputSegmentedField2 = r'./Data/geodesics/MovingGaussian/monoMesh_0_2/st/tree2segs.vtk'
-    inputMergeTreeNodes2 = r'./Data/geodesics/MovingGaussian/monoMesh_0_2/st/tree2nodes.vtk'
-    inputMergeTreeEdges2 = r'./Data/geodesics/MovingGaussian/monoMesh_0_2/st/tree2edges.vtk'
+    inputSegmentedField2 = r'.\Data\geodesics\MovingGaussian\monoMesh_2_3\st/tree2segs.vtk'
+    inputMergeTreeNodes2 = r'.\Data\geodesics\MovingGaussian\monoMesh_2_3\st/tree2nodes.vtk'
+    inputMergeTreeEdges2 = r'.\Data\geodesics\MovingGaussian\monoMesh_2_3\st/tree2edges.vtk'
 
     intermediateTreeFolder = r'./Data/geodesics/MovingGaussian/monoMesh_0_2/intermediateTree'
 
