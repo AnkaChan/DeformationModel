@@ -14,7 +14,7 @@ if __name__ == '__main__':
     # inSF = './Data/geodesics/VortexSlice/monoMesh_sub_8_10_Padded/monoMesh_010_smoothed.npy'
     # outSF = './Data/geodesics/VortexSlice/monoMesh_sub_8_10_Padded/monoMesh_010_smoothed_padded.npy'
 
-    input_dir = "Data/geodesics/VortexSlice/"
+    input_dir = "Data/geodesics/HeatedFlowY/"
     # output_dir = "./VortexSlice/monoMesh_8_10/"
     inputFile = "monoMesh_030.vti"
     outfile = input_dir + "monoMesh_030_smoothed"
