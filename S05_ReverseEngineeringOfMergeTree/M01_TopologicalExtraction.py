@@ -570,7 +570,7 @@ class Tree:
             s.nodeToField.append(np.argmin(dis))
             matchDis.append(dis[s.nodeToField[-1]])
             # print("Min distance: ", dis[matchedVIds[-1]])
-            assert dis[s.nodeToField[-1]] < 1e-2
+            assert dis[s.nodeToField[-1]] < 1e-5
 
             s.nodes[iNode].posInField = np.array(to2DIndex(s.nodeToField[-1], s.gridSize))
 
@@ -910,6 +910,7 @@ class Tree:
             assert newContourConstraints.numContours() == 2
 
             print("Num countour lines for saddle ", iNode, ":", newContourConstraints.numContours())
+            print("Up nodes:", s.nodes[iNode].upNodes)
             s.saddleContours[iNode] = newContourConstraints
 
             # determining which contourline contains which higher nodes
@@ -1346,7 +1347,7 @@ def plotSaddleCountourLine(newContourConstraints, gridSize, saddle =None, upperN
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         cols = newContourConstraints.getContour(iContour).contourLineParameters
 
-        print("AllPts: ", allPts)
+        # print("AllPts: ", allPts)
 
         if saddle is not None:
             ax.scatter(saddle[0], saddle[1], marker ="*", color = colors[iContour])
