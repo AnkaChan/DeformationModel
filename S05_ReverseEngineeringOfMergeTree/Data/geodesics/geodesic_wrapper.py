@@ -10,8 +10,8 @@ if __name__ == "__main__":
         output_dir = "./HeatedFlowY/data_1_3/"
         inputStartFile = "data_601.vti"
         inputEndFile = "data_603.vti"
-        threshold = 0.06
-        absoluteParam = 1  # 0 - relative persistence threshold (1%) 1 - absolute persistence threshold (0.06)
+        threshold = 0.1
+        absoluteParam = 0  # 0 - relative persistence threshold (1%) 1 - absolute persistence threshold (0.06)
         print(absoluteParam)
         treeType = "st"
         scalarField = 'velocityMagnitude'
