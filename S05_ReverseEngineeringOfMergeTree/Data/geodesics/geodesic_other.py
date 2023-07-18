@@ -4,6 +4,10 @@ paraview.compatibility.major = 5
 paraview.compatibility.minor = 10
 
 from paraview.simple import *
+from paraview import servermanager as sm
+from paraview.vtk.numpy_interface import dataset_adapter as dsa
+import vtk
+import vtk.util.numpy_support as VN
 import sys
 import os
 
@@ -27,6 +31,8 @@ print("absolute param", absoluteParam)
 treeType = sys.argv[8]
 print("tree type", treeType)
 scalarField = sys.argv[9]
+criticalType = sys.argv[10]
+print("critical type", criticalType)
 
 mt_dir = os.path.join(output_dir, treeType)
 print(mt_dir)
@@ -73,6 +79,33 @@ if treeType == 'mt':
 elif treeType == 'st':
     MTStart.TreeType = 'Split Tree'
 
+# extract and save saddle point contour lines in start tree
+criPointsStart = OutputPort(MTStart, 0)
+criPointsStart_fetched = sm.Fetch(criPointsStart)
+print(criPointsStart_fetched)
+# print(dir(criPoints_fetched))
+# print(criPoints_fetched.GetPointData().GetArray("CriticalType"))
+criTypeArrayStart = criPointsStart_fetched.GetPointData().GetArray("CriticalType")
+criTypeArrayStart = VN.vtk_to_numpy(criTypeArrayStart)
+funcValsArrayStart = criPointsStart_fetched.GetPointData().GetArray("Scalar")
+funcValsArrayStart = VN.vtk_to_numpy(funcValsArrayStart)
+print(funcValsArrayStart)
+
+print(criTypeArrayStart)
+for i, cri_point in enumerate(criTypeArrayStart):
+    if cri_point == int(criticalType):
+        saddleFuncVal = funcValsArrayStart[i]
+        print(i, saddleFuncVal)
+
+        # set active source
+        SetActiveSource(simplifiedStart)
+        # create a new 'Contour'
+        saddleContour = Contour(registrationName='saddleContour', Input=simplifiedStart)
+        saddleContour.ContourBy = ['POINTS', 'velocityMagnitude']
+        saddleContour.Isosurfaces = [saddleFuncVal]
+
+        SaveData(mt_dir + '/' + 'contour1_' + str(i) + '.vtp', proxy=saddleContour, DataMode='Ascii')
+
 # save start tree info
 SetActiveSource(MTStart)
 SaveData(mt_dir + '/' + 'tree1nodes.vtk', proxy=MTStart, PointDataArrays=['CriticalType', 'NodeId', 'RegionSize', 'RegionSpan', 'Scalar', 'VertexId'])
@@ -84,6 +117,7 @@ SetActiveSource(MTStart)
 MTStart_2 = GetActiveSource()
 SaveData(mt_dir + '/' + 'tree1segs.vtk', proxy=OutputPort(MTStart_2, 2))
 
+
 # compute end merge tree
 MTEnd = TTKMergeandContourTreeFTM(registrationName='MTEnd', Input=simplifiedEnd)
 MTEnd.ScalarField = ['POINTS', scalarField]
@@ -91,6 +125,31 @@ if treeType == 'mt':
     MTEnd.TreeType = 'Join Tree'
 elif treeType == 'st':
     MTEnd.TreeType = 'Split Tree'
+
+# extract and save saddle point contour lines in start tree
+criPointsEnd = OutputPort(MTEnd, 0)
+criPointsEnd_fetched = sm.Fetch(criPointsEnd)
+print(criPointsEnd_fetched)
+criTypeArrayEnd = criPointsEnd_fetched.GetPointData().GetArray("CriticalType")
+criTypeArrayEnd = VN.vtk_to_numpy(criTypeArrayEnd)
+funcValsArrayEnd = criPointsEnd_fetched.GetPointData().GetArray("Scalar")
+funcValsArrayEnd = VN.vtk_to_numpy(funcValsArrayEnd)
+print(funcValsArrayEnd)
+
+print(criTypeArrayEnd)
+for i, cri_point in enumerate(criTypeArrayEnd):
+    if cri_point == int(criticalType):
+        saddleFuncVal = funcValsArrayEnd[i]
+        print(i, saddleFuncVal)
+
+        # set active source
+        SetActiveSource(simplifiedEnd)
+        # create a new 'Contour'
+        saddleContour = Contour(registrationName='saddleContour', Input=simplifiedEnd)
+        saddleContour.ContourBy = ['POINTS', 'velocityMagnitude']
+        saddleContour.Isosurfaces = [saddleFuncVal]
+
+        SaveData(mt_dir + '/' + 'contour2_' + str(i) + '.vtp', proxy=saddleContour, DataMode='Ascii')
 
 # save end tree info
 SetActiveSource(MTEnd)
